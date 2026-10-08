@@ -1,0 +1,22 @@
+[project]
+name = "llm-murder"
+version = "0.1.0"
+description = "终端单机狼人杀：1 名人类玩家 + 5 个 LLM 玩家的 6 人局"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.30",
+    "rich>=13.0",
+    "pydantic>=2.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools]
+packages = ["engine", "llm", "ui"]
