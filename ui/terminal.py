@@ -1,15 +1,16 @@
-"""终端 UI：rich 渲染（角色卡/对局面板/私有信息/流式发言/终局）与玩家输入。
+"""终端 UI：rich 渲染（角色卡/对局面板/私有信息/正式发言/终局）与玩家输入。
 
 - 渲染一律基于事件流：`render_new` 增量渲染人类玩家视角内的新事件
   （公开事件 + 属于自己的私有事件），与 AI 共用引擎的视角过滤机制
 - 玩家输入做受限选项校验，非法输入拒绝重输
-- AI 发言通过 Live 逐字流式渲染，并显示「打字中」状态
+- AI 生成与校验期间只显示等待状态，最终由正式事件展示带编号的发言
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
+import sys
 
 from rich.console import Console
 from rich.live import Live
@@ -29,6 +30,13 @@ class TerminalUI:
     """人类玩家的终端界面。"""
 
     def __init__(self, game: Game, my_seat: int) -> None:
+        if sys.stdin.isatty():
+            # readline 按字符编辑中文，避免终端退格仅删除 UTF-8 的一个字节。
+            # 部分平台没有此可选标准库模块，仍由输入重试处理损坏字符。
+            try:
+                import readline  # noqa: F401
+            except ImportError:
+                pass
         self.game = game
         self.my_seat = my_seat
         self._rendered = 0  # 已渲染的人类视角事件数（增量渲染）
@@ -92,7 +100,7 @@ class TerminalUI:
             EventKind.EXILE: "bold red",
             EventKind.GAME_OVER: "bold yellow",
         }.get(e.kind, "white")
-        console.print(e.text, style=style)
+        console.print(Text(e.text), style=style)
 
     def _print_private_event(self, e: Event) -> None:
         console.print(f"🔒（私有）{e.text}", style="magenta")
@@ -110,13 +118,26 @@ class TerminalUI:
 
     # ------------------------------------------------------------ 玩家输入（4.4）
 
+    @staticmethod
+    def _read_input(prompt: str) -> str:
+        """损坏的输入行重输，不截断对局或把非法字符写进发言历史。"""
+        while True:
+            try:
+                line = console.input(prompt)
+                # 非交互 stdin 的 surrogateescape 可能返回未抛错的非法字节代理。
+                line.encode("utf-8")
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                console.print("[red]输入含无法识别的字符，请重新输入当前行；已输入的其他行会保留。[/red]")
+                continue
+            return line.strip()
+
     def prompt_speech(self) -> str:
         """白天多行自由发言；空行结束，内容不能为空。"""
         console.print("[bold]轮到你发言[/bold]（可多行输入，单独回车结束）：")
         lines: list[str] = []
         while True:
             prompt = "> " if not lines else "… "
-            line = console.input(prompt).strip()
+            line = self._read_input(prompt)
             if line:
                 lines.append(line)
             elif lines:
@@ -132,7 +153,7 @@ class TerminalUI:
         opts = "、".join(f"{s + 1}" for s in candidates)
         abstain = "（0 = 弃票）" if allow_abstain else ""
         while True:
-            raw = console.input(f"{question}[bold]（{opts}）{abstain}：[/bold]").strip()
+            raw = self._read_input(f"{question}[bold]（{opts}）{abstain}：[/bold]")
             if raw.isdigit():
                 val = int(raw)
                 if allow_abstain and val == 0:
@@ -156,7 +177,7 @@ class TerminalUI:
         console.print("可刀目标：" + "、".join(f"{s + 1} 号" for s in killable))
         delegate_hint = "，或输入 [bold]d[/bold] 委托队友决策" if teammate_seats else ""
         while True:
-            raw = console.input(f"输入刀口座位号{delegate_hint}：").strip()
+            raw = self._read_input(f"输入刀口座位号{delegate_hint}：")
             if raw.lower() == "d" and teammate_seats:
                 return None
             if raw.isdigit() and (int(raw) - 1) in killable:
@@ -179,7 +200,7 @@ class TerminalUI:
             f"毒药：{'✅ 还在' if can_poison else '❌ 已用完'}（同一夜只能用一瓶）"
         )
         while True:
-            action = console.input("输入 [bold]s[/bold] 用解药 / [bold]p[/bold] 用毒药 / [bold]n[/bold] 不用药：").strip().lower()
+            action = self._read_input("输入 [bold]s[/bold] 用解药 / [bold]p[/bold] 用毒药 / [bold]n[/bold] 不用药：").lower()
             if action == "s" and can_save:
                 return True, None
             if action == "s":
@@ -198,30 +219,15 @@ class TerminalUI:
     def prompt_vote(self, alive_seats: list[int]) -> int | None:
         return self._ask_seat_choice(alive_seats, "投票放逐谁？", allow_abstain=True)
 
-    # ------------------------------------------------------------ AI 流式渲染（4.5）
+    # ------------------------------------------------------------ AI 等待状态（4.5）
 
     @contextmanager
-    def stream_ai_speech(self, name: str, seat: int) -> Iterator[Callable[[str], None]]:
-        """AI 发言流式渲染：先显示发言人标识与「打字中」，逐字追加。
-
-        Live 结束后内容被清除，最终以事件流中的规范记录（[#n] 编号行）展示。
-        """
-        console.print(f"💬 [bold]{name}[/bold]（{seat + 1} 号）", style="cyan")
-        buf = ""
-        live = Live(console=console, refresh_per_second=20, transient=True)
-        live.start()
-        live.update(Text("（打字中…）", style="dim italic"))
-
-        def handle(delta: str) -> None:
-            nonlocal buf
-            buf += delta
-            live.update(Text(buf))
-
-        try:
-            yield handle
-        finally:
-            live.stop()
-            console.print()
+    def wait_ai_speech(self, name: str, seat: int) -> Iterator[None]:
+        """等待覆盖全部生成与重试；成功、降级及异常均清理 Live。"""
+        console.print(Text(f"💬 {name}（{seat + 1} 号）"), style="cyan")
+        with Live(Text("（生成与校验中…）", style="dim italic"),
+                  console=console, refresh_per_second=10, transient=True):
+            yield
 
     # ------------------------------------------------------------ 终局（4.6）
 

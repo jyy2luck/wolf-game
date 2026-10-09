@@ -14,6 +14,7 @@ import json
 import os
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from typing import Literal
 
 from openai import OpenAI
 from rich.console import Console
@@ -24,6 +25,8 @@ console = Console()
 
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MAX_TOKENS = 4096
+DEFAULT_MAX_TOKENS_LIMIT = 16384
 
 CONFIG_DIR = Path.home() / ".llm_murder"
 CONFIG_PATH = CONFIG_DIR / "config.json"
@@ -31,11 +34,27 @@ CONFIG_PATH = CONFIG_DIR / "config.json"
 
 @dataclass
 class LLMConfig:
-    """OpenAI 兼容服务的连接三元组。"""
+    """OpenAI 兼容服务连接与生成参数；旧配置使用默认生成预算。"""
 
     base_url: str
     api_key: str
     model: str
+    max_tokens: int = DEFAULT_MAX_TOKENS
+    max_tokens_limit: int = DEFAULT_MAX_TOKENS_LIMIT
+    thinking: Literal["enabled", "disabled"] | None = None
+    json_mode: bool | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("max_tokens", "max_tokens_limit"):
+            value = getattr(self, name)
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} 必须是正整数")
+        if self.max_tokens_limit < self.max_tokens:
+            raise ValueError("max_tokens_limit 不能小于 max_tokens")
+        if self.thinking not in (None, "enabled", "disabled"):
+            raise ValueError("thinking 必须是 enabled、disabled 或 null")
+        if self.json_mode is not None and type(self.json_mode) is not bool:
+            raise ValueError("json_mode 必须是 true、false 或 null")
 
 
 # ---------------------------------------------------------------- 加载与保存
@@ -51,6 +70,10 @@ def load_config() -> LLMConfig | None:
         base_url=str(data["base_url"]).rstrip("/"),
         api_key=str(data["api_key"]),
         model=str(data["model"]),
+        max_tokens=data.get("max_tokens", DEFAULT_MAX_TOKENS),
+        max_tokens_limit=data.get("max_tokens_limit", DEFAULT_MAX_TOKENS_LIMIT),
+        thinking=data.get("thinking"),
+        json_mode=data.get("json_mode"),
     )
 
 

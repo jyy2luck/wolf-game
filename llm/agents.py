@@ -4,7 +4,7 @@
 - 每次调用返回结构化 JSON（pydantic 校验），解析失败携带错误重试最多 2 次，
   仍失败降级为安全行为，对局绝不因 LLM 输出异常而中断
 - prompt = 身份层 + 记忆层（视角过滤事件流 + 发言编号）+ 情境层 + 输出层
-- 穿帮检测：确定性关键词规则，检出携带警告重试一次，二次穿帮替换安全发言
+- 格式、目标、事实与穿帮检测共享三次尝试；未验证候选不公开
 """
 
 from __future__ import annotations
@@ -14,12 +14,16 @@ import logging
 import random
 import re
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field, ValidationError
 
+from config import DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS_LIMIT
 from engine.events import Event, EventKind
+from engine.game import SpeechContext
 from engine.roles import Role
+from llm.client import OutputTruncatedError
+from llm.grounding import SpeechReference, speech_index, validate_speech_facts
 
 logger = logging.getLogger("llm_murder")
 
@@ -57,11 +61,19 @@ def assign_personas(rng: random.Random, count: int) -> list[Persona]:
 
 
 class SpeechPack(BaseModel):
-    """白天发言包：发言 + 怀疑对象 + 情绪（同包返回，省调用）。"""
+    """白天发言、倾向及可核对的公开发言依据。"""
 
     speech: str = Field(min_length=1)
     suspect: int = Field(default=0, ge=0, le=6, description="怀疑的座位号(1-6)，0=未定")
     mood: str = Field(default="平静")
+    references: list[SpeechReference] = Field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ValidationIssue:
+    reason: str
+    kind: str
+    retry_allowed: bool = True
 
 
 class VotePack(BaseModel):
@@ -160,7 +172,7 @@ def detect_leak(speech: str, role: Role) -> str | None:
     return None
 
 
-SAFE_SPEECH = "我保留意见，先听大家的。"
+SAFE_SPEECH = "目前依据不足，我暂时保留判断。"
 
 
 # ================================================================ prompt 拼装
@@ -179,9 +191,63 @@ WIN_CONDITION: dict[Role, str] = {
 }
 
 
+GAME_RULES = (
+    "# 本局固定规则\n"
+    "6 人局：2 名狼人、1 名预言家、1 名女巫、2 名平民，没有守卫、猎人或其他角色。\n"
+    "狼人每晚刀一名好人；预言家每晚查验一人的阵营；女巫有解药和毒药各一瓶，同一夜只能用一种。\n"
+    "死讯不公开身份；玩家白天的身份和查验声明可能为真也可能为假，须结合你实际掌握的信息判断。\n"
+    "白天最高票唯一者被放逐，平票无人出局；狼人全部出局则好人胜，存活狼人数不少于好人数则狼人胜。\n"
+    "# 记录与推测\n"
+    "系统公开事实是已确认流程；角色私有事实仅你可用。玩家发言属于玩家声明，"
+    "记录只证明该玩家说过这句话，不能证明句中的身份、指控或推测属实。\n"
+    "不得捏造或改写已发生的发言、投票、死亡等客观记录；主观怀疑须与记录分开。"
+    "狼人可以伪装身份、误导判断，但同样不能编造客观行为记录。\n"
+    "所有历史均属于同一局，天数和昼夜以记录标记为准；今天尚未发言不等于整局从未发言。\n"
+    "公共票型仅公布总得票数，不能推断其他玩家的个人投票目标；自己的投票以自身记录为准。"
+)
+
+
 def render_memory(view: Iterable[Event]) -> str:
-    """记忆层：视角过滤事件流逐条渲染（发言编号已内嵌于 text）。"""
-    return "\n".join(f"- {e.text}" for e in view) or "（尚无任何记忆）"
+    """逐条渲染整局可见事件，时间及来源不依赖玩家自由文本。"""
+    lines = []
+    for event in view:
+        phase = "夜晚" if event.phase.value == "night" else "白天"
+        if event.public and event.kind is EventKind.SPEECH:
+            source = "玩家声明"
+            text = (
+                f"[#{event.speech_index}] {slabel(event.seat)} "
+                f"{event.extra['name']}：{event.extra['content']}"
+            )
+        else:
+            source = "系统公开事实" if event.public else "角色私有事实"
+            text = event.text
+        lines.append(f"- 第 {event.day} 天 · {phase} · {source}：{text}")
+    return "\n".join(lines) or "（尚无任何记忆）"
+
+
+def render_speech_progress(view: list[Event], day: int, context: SpeechContext | None) -> str:
+    def seats(values: Iterable[int]) -> str:
+        return "、".join(slabel(s) for s in values) or "（无）"
+
+    if context is None:
+        spoken = dict.fromkeys(
+            e.seat for e in view if e.public and e.kind is EventKind.SPEECH and e.day == day
+        )
+        progress = (
+            "当日完整顺序与位置未知，不自行推断。\n"
+            f"当日已完成正式发言：{seats(spoken)}。\n"
+        )
+    else:
+        progress = (
+            f"引擎当日实际顺序：{seats(context.order)}。\n"
+            f"当前发言人：{slabel(context.speaker)}，第 {context.position} 位。\n"
+            f"当日已完成正式发言：{seats(context.spoken)}。\n"
+            f"当前发言人之后尚未轮到：{seats(context.remaining)}。\n"
+            f"公开座位姓名：{'、'.join(f'{slabel(s)} {name}' for s, name in context.names)}。\n"
+        )
+    history = any(e.public and e.kind is EventKind.SPEECH for e in view)
+    progress += "整局已有公开发言，见完整记忆。\n" if history else "整局尚无公开发言记录。\n"
+    return progress + "正常轮候不是故意沉默的证据；今日进度不能否定往日发言。"
 
 
 def build_speech_prompt(
@@ -196,11 +262,13 @@ def build_speech_prompt(
     alive_seats: list[int],
     my_votes: list[tuple[int, int | None]],
     last_suspect: int | None,
+    context: SpeechContext | None = None,
     retry_warning: str | None = None,
 ) -> list[dict]:
     """四层拼装白天发言 prompt。返回 openai messages。"""
     # ---------- 身份层
     identity = (
+        f"{GAME_RULES}\n\n"
         f"# 你的身份（绝密，游戏结束时才公开）\n"
         f"你是 6 人局狼人杀玩家：{name}，坐在 {slabel(seat)}。\n"
         f"你的角色：{role.value}。胜利条件：{WIN_CONDITION[role]}\n"
@@ -214,7 +282,7 @@ def build_speech_prompt(
     # ---------- 情境层
     alive_desc = "、".join(slabel(s) for s in alive_seats)
     my_speeches = [
-        e.extra.get("content", e.text)
+        f"第 {e.day} 天 [#{e.speech_index}]：{e.extra['content']}"
         for e in view
         if e.kind is EventKind.SPEECH and e.seat == seat
     ]
@@ -228,24 +296,34 @@ def build_speech_prompt(
         f"# 当前情境\n"
         f"现在是第 {day} 天，白天发言阶段。轮到你（{slabel(seat)}，{name}）发言。\n"
         f"存活玩家：{alive_desc}。\n"
-        f"你此前的发言（保持立场连贯，若转变怀疑对象必须说明理由）：{my_speech_desc}\n"
+        f"{render_speech_progress(view, day, context)}\n"
+        f"你近期的发言摘要（最近三条，完整历史见记忆；转变怀疑对象须说明理由）：{my_speech_desc}\n"
         f"你此前的投票：{vote_desc}\n"
         f"你当前的怀疑对象：{suspect_desc}"
     )
 
-    # ---------- 输出层
+    # ---------- 输出层：引用示例从本局真实记录生成。
+    example = {"speech": "目前依据不足，我暂时保留判断。", "suspect": 0, "mood": "平静", "references": []}
+    past = next((e for e in view if e.public and e.kind is EventKind.SPEECH and e.seat != seat), None)
+    if past is not None and past.extra["content"]:
+        quote = past.extra["content"][:12]
+        example["speech"] = f"第 {past.day} 天 {slabel(past.seat)} 在 [#{past.speech_index}] 说过“{quote}”，我想再听听大家的判断。"
+        example["references"] = [{"speech_index": past.speech_index, "seat": past.seat + 1, "day": past.day, "quote": quote}]
     speech_schema = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"speech": "你的口语化发言，不超过150字", '
-        '"suspect": <你当前最怀疑的座位号(1-6，不确定填0)>, '
-        '"mood": <一到两个字的情绪词>}\n'
+        f"{json.dumps(example, ensure_ascii=False)}\n"
+        "suspect 填你最怀疑的存活座位号(1-6)，不确定填0；mood 填简短情绪词。\n"
+        "引用时 references 每项填写 speech_index、seat（1-based）、day、quote（非空原文片段）；"
+        "正文须使用同一真实 [#编号]，人物和时间须一致，无引用填空列表。\n"
+        "引用往日发言请明确昨天、第 N 天或历史时间，不要写成今天刚才。\n"
         "\n## 行为铁律\n"
         "1. 绝不泄露视角之外的信息；夜晚发生但你不知情的事一个字都不能提。\n"
         "2. 不提「队友」「狼刀/刀口」这类词。\n"
         "3. 口语化、像真人说话，禁止列表体与书面语，不超过 150 字。\n"
         "4. 引用别人的观点必须用真实存在的发言编号（如 [#3]），不确定编号就不要引用。\n"
-        "5. 只输出 JSON 本身。"
+        "5. 不得捏造已发生的行为，区分记录与推测，明确今日或历史时间范围。\n"
+        "6. 只输出 JSON 本身。"
     )
     if role is Role.WEREWOLF:
         speech_schema = speech_schema.replace(
@@ -292,6 +370,7 @@ def build_vote_prompt(
 ) -> list[dict]:
     """投票 prompt：基于全部发言后的独立调用。"""
     identity = (
+        f"{GAME_RULES}\n\n"
         f"# 你的身份（绝密）\n"
         f"你是 6 人局狼人杀玩家：{name}，坐在 {slabel(seat)}，角色：{role.value}。\n"
         f"胜利条件：{WIN_CONDITION[role]}"
@@ -306,7 +385,8 @@ def build_vote_prompt(
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"vote": <你要投票放逐的座位号(1-6)>}\n'
+        '{"vote": 0}\n'
+        "vote 填你要放逐的存活座位号(1-6)。\n"
         "可以投弃票（填 0），但投出你最怀疑的人更符合你的胜利条件。\n"
         "## 铁律\n"
         f"1. 绝不泄露视角之外的信息。\n"
@@ -329,6 +409,7 @@ def build_wolf_den_prompt(
     """狼窝会话 prompt：两狼共享一次调用，统一产出刀口。"""
     wolves_desc = "、".join(slabel(s) for s in wolf_seats)
     identity = (
+        f"{GAME_RULES}\n\n"
         f"# 狼队内部密谈（绝密）\n"
         f"现在是第 {day} 夜。你们是狼队：{wolves_desc}。\n"
         f"这次调用代表整个狼队做决策（由「{persona.name}」主导口吻）。"
@@ -342,7 +423,8 @@ def build_wolf_den_prompt(
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"target": <你们决定刀杀的座位号(1-6)>}\n'
+        '{"target": 1}\n'
+        "target 必须填可刀对象中的一个座位号(1-6)。\n"
         "## 铁律\n只输出 JSON 本身。"
     )
     return [
@@ -360,6 +442,7 @@ def build_seer_prompt(
     checkable: list[int],
 ) -> list[dict]:
     identity = (
+        f"{GAME_RULES}\n\n"
         f"# 你的身份（绝密）\n"
         f"你是预言家（{slabel(seat)}，人设：{persona.name}）。"
         f"每晚查验一名玩家，获知他是狼人还是好人。结果只有你自己知道。"
@@ -373,7 +456,8 @@ def build_seer_prompt(
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"target": <你要查验的座位号(1-6)>}\n'
+        '{"target": 1}\n'
+        "target 必须填可查验对象中的一个座位号(1-6)。\n"
         "## 铁律\n只输出 JSON 本身。"
     )
     return [
@@ -394,6 +478,7 @@ def build_witch_prompt(
     alive_seats: list[int],
 ) -> list[dict]:
     identity = (
+        f"{GAME_RULES}\n\n"
         f"# 你的身份（绝密）\n"
         f"你是女巫（{slabel(seat)}，人设：{persona.name}）。"
         f"拥有一瓶解药与一瓶毒药，各限用一次，同一夜不得同时使用。"
@@ -409,7 +494,8 @@ def build_witch_prompt(
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"save": <true=用解药救刀口/false=不用>, "poison": <毒杀的座位号(1-6)，不用毒填0>}\n'
+        '{"save": false, "poison": 0}\n'
+        "save 为 true 表示用解药救刀口，false 表示不用；poison 填毒杀的存活座位号(1-6)，不用毒填0。\n"
         "## 铁律\n"
         f"1. save 与 poison 不得同时使用（要么救，要么毒，要么都不用）。\n"
         f"2. 只输出 JSON 本身。"
@@ -474,17 +560,45 @@ class AIPlayer:
         day: int,
         alive_seats: list[int],
         on_delta: Callable[[str], None] | None = None,
+        *,
+        context: SpeechContext | None = None,
     ) -> tuple[str, int | None, str]:
-        """白天发言。返回 (发言文本, 怀疑座位 0-based 或 None, 情绪)。"""
+        """返回已校验发言、怀疑座位（0-based）及情绪。
+
+        on_delta 保留以兼容直接调用；候选仅内部收集，公开展示走正式事件。
+        """
         kwargs = dict(
             seat=self.seat, name=self.name, role=self.role,
             persona=self.persona, teammate_seats=self.teammate_seats,
             view=view, day=day, alive_seats=alive_seats,
             my_votes=self.my_votes, last_suspect=self.last_suspect,
+            context=context,
         )
 
-        def validate(pack: SpeechPack) -> str | None:
-            return self._alive_target_error(pack.suspect, alive_seats, allow_zero=True)
+        records = speech_index(view)
+        leak_attempts = 0
+
+        def validate(pack: SpeechPack) -> ValidationIssue | None:
+            nonlocal leak_attempts
+            # 所有校验与最终公开文本使用同一规范化结果。
+            pack.speech = pack.speech.strip()[:MAX_SPEECH_CHARS]
+            if not pack.speech:
+                return ValidationIssue("发言不能为空", "format")
+            leak = detect_leak(pack.speech, self.role)
+            if leak is not None:
+                leak_attempts += 1
+                if leak_attempts > 1:
+                    self.leak_count += 1
+                return ValidationIssue(f"穿帮警告：{leak}", "leak", leak_attempts < 2)
+            target_error = self._alive_target_error(pack.suspect, alive_seats, allow_zero=True)
+            if target_error:
+                return ValidationIssue(target_error, "target")
+            fact_error = validate_speech_facts(
+                pack.speech, pack.references, records=records, day=day, context=context,
+            )
+            if fact_error:
+                return ValidationIssue(fact_error, "fact")
+            return None
 
         def speech_mock() -> str:
             # mock 模式合法发言包：怀疑对象取第一个非自己的存活座位
@@ -494,41 +608,25 @@ class AIPlayer:
                     "speech": "（离线模式）我先听听大家的看法，保留意见。",
                     "suspect": (target + 1) if target is not None else 0,
                     "mood": "平静",
+                    "references": [],
                 },
                 ensure_ascii=False,
             )
 
         pack, err = call_structured(
             self.client, build_speech_prompt(**kwargs), SpeechPack,
-            stream=True, on_delta=on_delta, validate=validate,
+            # 客户端可流式收集，原始 delta 不能传给公开回调。
+            stream=True, validate=validate,
             mock_reply=speech_mock,
         )
         if pack is None:
-            logger.warning("AI「%s」发言降级（解析失败）：%s", self.name, err)
+            logger.warning("AI「%s」发言降级（输出不可用）：%s", self.name, err)
+            self.last_suspect = None
             return SAFE_SPEECH, None, "平静"
-
-        speech = pack.speech.strip()[:MAX_SPEECH_CHARS]
-        leak = detect_leak(speech, self.role)
-        if leak is not None:
-            # 携带警告重试一次
-            retry_kwargs = dict(kwargs, retry_warning=leak)
-            pack2, err2 = call_structured(
-                self.client, build_speech_prompt(**retry_kwargs), SpeechPack,
-                stream=True, on_delta=on_delta, validate=validate,
-                mock_reply=speech_mock,
-            )
-            if pack2 is not None and detect_leak(pack2.speech.strip()[:MAX_SPEECH_CHARS], self.role) is None:
-                pack, speech, leak = pack2, pack2.speech.strip()[:MAX_SPEECH_CHARS], None
-            if leak is not None:
-                self.leak_count += 1
-                logger.warning(
-                    "AI「%s」二次穿帮，替换为安全发言：%s", self.name, leak
-                )
-                speech = SAFE_SPEECH
 
         suspect = pack.suspect - 1 if pack.suspect > 0 else None
         self.last_suspect = suspect
-        return speech, suspect, pack.mood
+        return pack.speech, suspect, pack.mood
 
     # ------------------------------------------------------------ 投票
 
@@ -665,29 +763,52 @@ def call_structured(
     max_retries: int = 2,
     stream: bool = False,
     on_delta: Callable[[str], None] | None = None,
-    validate: Callable[[BaseModel], str | None] | None = None,
+    validate: Callable[[BaseModel], str | ValidationIssue | None] | None = None,
     mock_reply: Callable[[], str] | None = None,
 ) -> tuple[BaseModel | None, str | None]:
-    """带重试的结构化调用：解析失败/业务校验失败时携带错误重试（最多 2 次）。
+    """最多重试 2 次：格式/业务错误反馈给模型，截断则在上限内扩大预算。
 
     mock_reply：mock 模式下按请求 schema 生成合法回复（避免 mock 误触发降级）。
     返回 (模型实例, None) 或 (None, 最终错误)。
     """
     convo = list(messages)
     last_err = "未知错误"
+    config = getattr(client, "config", None)
+    budget = getattr(config, "max_tokens", DEFAULT_MAX_TOKENS)
+    budget_limit = getattr(config, "max_tokens_limit", DEFAULT_MAX_TOKENS_LIMIT)
     for attempt in range(max_retries + 1):
-        text = client.chat(
-            convo, stream=stream, on_delta=on_delta, mock_reply=mock_reply
-        )
+        try:
+            text = client.chat(
+                convo, stream=stream, on_delta=on_delta,
+                max_tokens=budget, mock_reply=mock_reply,
+            )
+        except OutputTruncatedError as exc:
+            last_err = str(exc)
+            next_budget = min(budget * 2, budget_limit)
+            logger.warning("结构化输出被截断（第 %d 次）：%s", attempt + 1, last_err)
+            if attempt == max_retries or next_budget <= budget:
+                break
+            logger.info("扩大输出预算重试：%d → %d tokens", budget, next_budget)
+            budget = next_budget
+            # 截断不是格式错误，不将半截 JSON 放回对话。
+            continue
+        except RuntimeError as exc:
+            # 客户端的网络重试已耗尽，该行动交给调用方安全降级。
+            return None, str(exc)
         pack, err = parse_pack(text, model_cls)
         if pack is not None and validate is not None:
             err = validate(pack)
         if pack is not None and err is None:
             return pack, None
-        last_err = err or "未知错误"
+        issue = err if isinstance(err, ValidationIssue) else None
+        last_err = issue.reason if issue is not None else err or "未知错误"
         logger.warning(
-            "结构化输出解析失败（第 %d 次）：%s", attempt + 1, last_err
+            "结构化输出%s失败（第 %d 次）：%s",
+            f"校验/{issue.kind}" if issue is not None else "解析",
+            attempt + 1, last_err,
         )
+        if issue is not None and not issue.retry_allowed:
+            break
         convo = convo + [
             {"role": "assistant", "content": text},
             {

@@ -5,6 +5,7 @@ import json
 import pytest
 
 from engine.roles import Role
+from engine import events as ev
 from llm.agents import (
     PERSONA_POOL,
     SAFE_SPEECH,
@@ -12,7 +13,14 @@ from llm.agents import (
     Persona,
     VotePack,
     WitchPack,
+    SpeechPack,
+    TargetPack,
     assign_personas,
+    build_speech_prompt,
+    build_vote_prompt,
+    build_wolf_den_prompt,
+    build_seer_prompt,
+    build_witch_prompt,
     detect_leak,
     extract_json_block,
     parse_pack,
@@ -59,9 +67,32 @@ def make_player(
 ALIVE = [0, 1, 2, 3, 4, 5]
 
 
-def speech_json(speech: str, suspect: int = 0, mood: str = "平静") -> str:
+@pytest.mark.parametrize("builder,options,schema", [
+    (build_speech_prompt, {"seat": 1, "name": "学姐", "role": Role.VILLAGER,
+                          "teammate_seats": None, "alive_seats": ALIVE,
+                          "my_votes": [], "last_suspect": None}, SpeechPack),
+    (build_vote_prompt, {"seat": 1, "name": "学姐", "role": Role.VILLAGER,
+                        "alive_seats": ALIVE, "my_votes": []}, VotePack),
+    (build_wolf_den_prompt, {"wolf_seats": [1, 2], "killable": [0, 3, 4, 5]}, TargetPack),
+    (build_seer_prompt, {"seat": 1, "checkable": [0, 2, 3, 4, 5]}, TargetPack),
+    (build_witch_prompt, {"seat": 1, "kill_target": 0, "can_save": True,
+                         "can_poison": True, "alive_seats": ALIVE}, WitchPack),
+])
+def test_action_prompt_examples_are_valid_json(builder, options, schema):
+    messages = builder(persona=Persona("学姐", "理性", "从逻辑上讲"),
+                       view=[], day=1, **options)
+    pack, err = parse_pack(messages[-1]["content"], schema)
+    assert pack is not None and err is None
+    assert "2 名狼人、1 名预言家、1 名女巫、2 名平民" in messages[0]["content"]
+    assert "没有守卫" in messages[0]["content"]
+
+
+def speech_json(speech: str, suspect: int = 0, mood: str = "平静", references=None) -> str:
+    data = {"speech": speech, "suspect": suspect, "mood": mood}
+    if references is not None:
+        data["references"] = references
     return json.dumps(
-        {"speech": speech, "suspect": suspect, "mood": mood}, ensure_ascii=False
+        data, ensure_ascii=False
     )
 
 
@@ -110,9 +141,10 @@ def test_detect_leak_matrix():
 
 def test_day_speech_success():
     player, client = make_player(
-        replies=[speech_json("我觉得 [#1] 有点问题，按理说首发发言最激进。", 3, "冷静")]
+        replies=[speech_json("我觉得 [#1] 有点问题，按理说首发发言最激进。", 3, "冷静",
+                             [{"speech_index": 1, "seat": 1, "day": 1, "quote": "我怀疑2号"}])]
     )
-    speech, suspect, mood = player.day_speech([], 1, ALIVE)
+    speech, suspect, mood = player.day_speech([ev.speech(1, 0, "人类", 1, "我怀疑2号")], 1, ALIVE)
     assert speech.startswith("我觉得 [#1]")
     assert suspect == 2  # 1-based 3 → 0-based 2
     assert mood == "冷静"
@@ -155,11 +187,11 @@ def test_day_speech_leak_retry_then_clean():
         role=Role.WEREWOLF,
         replies=[
             speech_json("我和我的队友昨晚聊过，我觉得3号有问题", 3),
-            speech_json("我觉得3号的发言太急了", 3),
+            speech_json("我目前只是暂时怀疑3号，还得听大家的观点。", 3),
         ],
     )
     speech, _, _ = player.day_speech([], 1, ALIVE)
-    assert speech == "我觉得3号的发言太急了"
+    assert speech == "我目前只是暂时怀疑3号，还得听大家的观点。"
     assert player.leak_count == 0
     assert len(client.calls) == 2
     assert "警告" in client.calls[1][-1]["content"]  # 重试携带穿帮警告

@@ -15,7 +15,7 @@ import random
 import sys
 
 from config import LLMConfig, ensure_config
-from engine.game import DecisionHooks, Game
+from engine.game import DecisionHooks, Game, SpeechContext
 from engine.roles import Role
 from llm.agents import AIPlayer, assign_personas
 from llm.client import LLMClient
@@ -98,15 +98,15 @@ class Controller:
 
     # ------------------------------------------------------------ 白天
 
-    def on_speech(self, seat: int, view, day: int) -> str:
+    def on_speech(self, seat: int, view, day: int, context: SpeechContext) -> str:
         self.ui.render_new()
         self.ui.show_alive_update()
         if seat == self.human:
             return self.ui.prompt_speech()
         agent = self.agents[seat]
-        with self.ui.stream_ai_speech(agent.name, seat) as handle:
+        with self.ui.wait_ai_speech(agent.name, seat):
             speech, _suspect, _mood = agent.day_speech(
-                view, day, self.game.alive_seats(), on_delta=handle
+                view, day, self.game.alive_seats(), context=context,
             )
         return speech
 
@@ -129,7 +129,8 @@ def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, 
     human_seat = rng.randrange(6)
     ai_seats = [s for s in range(6) if s != human_seat]
     personas = assign_personas(rng, 5)
-    names = ["你"] + [""] * 5
+    names = [""] * 6
+    names[human_seat] = "你"
     for seat, persona in zip(ai_seats, personas):
         names[seat] = persona.name
 
@@ -167,7 +168,8 @@ def main() -> None:
         usage = client.usage
         print(
             f"\n📊 本次对局 LLM 调用 {usage.calls} 次，"
-            f"tokens {usage.total_tokens}（入 {usage.prompt_tokens} / 出 {usage.completion_tokens}）"
+            f"tokens {usage.total_tokens}（入 {usage.prompt_tokens} / 出 {usage.completion_tokens}，"
+            f"其中思考 {usage.reasoning_tokens}）"
         )
     except KeyboardInterrupt:
         print("\n已退出游戏。")

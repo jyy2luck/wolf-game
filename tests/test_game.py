@@ -19,7 +19,7 @@ def default_hooks(**overrides) -> DecisionHooks:
         wolf_kill=lambda wolves, killable, view, day: killable[0],
         seer_check=lambda seer, checkable, view, day: checkable[0],
         witch_act=lambda witch, kill, can_save, can_poison, view, day: (False, None),
-        speech=lambda seat, view, day: f"座位{seat}的发言",
+        speech=lambda seat, view, day, context: f"座位{seat}的发言",
         vote=lambda seat, alive, view, day: next((s for s in alive if s != seat), None),
     )
     base.update(overrides)
@@ -230,6 +230,81 @@ def test_illegal_wolf_target_raises():
 
 
 # ---------------------------------------------------------------- 白天流程
+
+
+def test_speech_context_follows_official_events_after_seat_five_dies():
+    captured = []
+
+    def speak(seat, view, day, context):
+        captured.append(context)
+        assert context.speaker == seat and context.day == day
+        official = [e.seat for e in view if e.kind is EventKind.SPEECH and e.day == day]
+        assert list(context.spoken) == official
+        assert all(e.public or seat in e.viewers for e in view)
+        return f"正式发言 {seat + 1}"
+
+    game = make_game(speech=speak, vote=lambda *args: None)
+    game.day = 1
+    game.players[4].alive = False
+    game.last_dead_seat = 4
+    game.events.append(ev.death(1, [4]))
+    game._play_day()
+    order = (5, 0, 1, 2, 3)
+    assert tuple(c.speaker for c in captured) == order
+    for i, context in enumerate(captured):
+        assert context.order == order
+        assert context.position == i + 1
+        assert context.spoken == order[:i]
+        assert context.remaining == order[i + 1:]
+        assert context.names == tuple(enumerate(game.names))
+        assert set(vars(context)) == {"day", "speaker", "order", "position", "spoken", "remaining", "names"}
+
+
+@pytest.mark.parametrize("scenario,expected", [
+    ("peaceful", (0, 1, 2, 3, 4, 5)),
+    ("prior_exile", (5, 0, 1, 2, 3)),
+    ("multiple_deaths", (5, 0, 2, 3)),
+])
+def test_speech_context_uses_actual_night_and_exile_scheduling(scenario, expected):
+    captured = []
+    game = make_game()
+    roles = [Role.WEREWOLF, Role.WEREWOLF, Role.SEER, Role.WITCH, Role.VILLAGER, Role.VILLAGER]
+    for player, role in zip(game.players, roles):
+        player.role = role
+    if scenario == "prior_exile":
+        game.players[4].alive = False
+        game.last_dead_seat = 4
+        game.events.append(ev.exile(1, 4))
+        game.day = 1
+    game.hooks = default_hooks(
+        wolf_kill=lambda w, k, v, d: k[-1] if scenario == "prior_exile" else 4,
+        witch_act=lambda *args: (False, 1) if scenario == "multiple_deaths" else (True, None),
+        speech=lambda s, v, d, c: captured.append(c) or "保留判断。",
+        vote=lambda *args: None,
+    )
+    run_night(game)
+    game._play_day()
+    assert tuple(c.speaker for c in captured) == expected
+    assert all(c.order == expected for c in captured)
+
+
+def test_speech_progress_resets_each_day_and_keeps_all_history():
+    captured = []
+    game = make_game(
+        speech=lambda s, v, d, c: captured.append((c, v)) or f"第 {d} 天观点",
+        vote=lambda *args: None,
+    )
+    game.day = 1
+    game._play_day()
+    day_one = [e for e in game.events if e.kind is EventKind.SPEECH]
+    game.day = 2
+    game.events.append(ev.night_falls(2))
+    game.events.append(ev.peaceful_night(2))
+    game._play_day()
+    context, view = captured[6]
+    assert context.day == 2 and context.spoken == () and context.position == 1
+    assert [e for e in view if e.kind is EventKind.SPEECH] == day_one
+    assert [e.speech_index for e in game.events if e.kind is EventKind.SPEECH] == list(range(1, 13))
 
 
 def test_speech_order_starts_after_last_dead():

@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from engine import events as ev
@@ -31,6 +31,19 @@ class Player:
         return f"{self.name}（{self.seat + 1} 号）"
 
 
+@dataclass(frozen=True)
+class SpeechContext:
+    """引擎实际调度的公开进度。座位为 0-based，position 为 1-based。"""
+
+    day: int
+    speaker: int
+    order: tuple[int, ...]
+    position: int
+    spoken: tuple[int, ...]
+    remaining: tuple[int, ...]
+    names: tuple[tuple[int, str], ...]
+
+
 # 决策回调类型 -----------------------------------------------------------------
 # wolf_kill: 由狼队统一决策一个刀口目标
 WolfKillFn = Callable[[Sequence[int], Sequence[int], list[ev.Event], int], int]
@@ -41,7 +54,7 @@ WitchActFn = Callable[
     [int, int | None, bool, bool, list[ev.Event], int], tuple[bool, int | None]
 ]
 # speech: 返回发言文本
-SpeechFn = Callable[[int, list[ev.Event], int], str]
+SpeechFn = Callable[[int, list[ev.Event], int, SpeechContext], str]
 # vote: 返回目标座位或 None（弃票）
 VoteFn = Callable[[int, Sequence[int], list[ev.Event], int], int | None]
 
@@ -219,8 +232,19 @@ class Game:
         order = [s for s in range(start, 6)] + [s for s in range(0, start)]
         speakers = [s for s in order if s in alive]
 
-        for seat in speakers:
-            text = self.hooks.speech(seat, self.view(seat), self.day)
+        for position, seat in enumerate(speakers):
+            completed = {
+                e.seat for e in self.events
+                if e.public and e.kind is ev.EventKind.SPEECH and e.day == self.day
+            }
+            context = SpeechContext(
+                day=self.day, speaker=seat, order=tuple(speakers),
+                position=position + 1,
+                spoken=tuple(s for s in speakers if s in completed),
+                remaining=tuple(speakers[position + 1:]),
+                names=tuple((p.seat, p.name) for p in self.players),
+            )
+            text = self.hooks.speech(seat, self.view(seat), self.day, context)
             self.speech_counter += 1
             self.events.append(
                 ev.speech(self.day, seat, self.players[seat].name,
