@@ -6,7 +6,7 @@ from engine import events as ev
 from engine.game import SpeechContext
 from engine.roles import Role
 from llm.agents import (
-    Persona, build_speech_prompt, build_vote_prompt, build_wolf_den_prompt,
+    Persona, PrivateStrategy, build_speech_prompt, build_vote_prompt, build_wolf_den_prompt,
     build_seer_prompt, build_witch_prompt,
 )
 
@@ -47,7 +47,8 @@ def test_every_action_keeps_complete_visible_history(builder, options):
         ev.potion_used(5, 3, "毒药", 2),
     ]
     view = ev.visible_events(history, 5)
-    messages = builder(persona=PERSONA, view=view, day=6, **options)
+    strategy = PrivateStrategy(assessment="只有真实查验才可信。", goal="隐藏真实身份保护自己。", claim="维持之前的假身份。")
+    messages = builder(persona=PERSONA, view=view, day=6, private_strategy=strategy, **options)
     text = messages[0]["content"]
     for event in view:
         if event.kind is ev.EventKind.SPEECH:
@@ -59,10 +60,14 @@ def test_every_action_keeps_complete_visible_history(builder, options):
     assert "系统公开事实：票型：2 号 3 票，3 号 2 票" in text
     assert "记录只证明该玩家说过这句话" in text
     assert "不能推断其他玩家的个人投票目标" in text
+    assert strategy.model_dump_json() in text and "不是事实或本轮指令" in text
+    assert "所有角色均可伪装身份或阵营" in text
+    assert "不必每轮撒谎" in text and "编造的查验不能当作真实查验" in text
     # 开始另一局，新的视角没有旧局内容。
     fresh = builder(persona=PERSONA, view=[ev.role_assigned(0, 5, "预言家")], day=1, **options)
     assert "我的第1次观点" not in fresh[0]["content"]
     assert "已出局AI" not in fresh[0]["content"]
+    assert strategy.claim not in fresh[0]["content"]
 
 
 def test_first_speaker_has_actual_order_and_no_history():

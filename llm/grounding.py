@@ -24,16 +24,22 @@ _CITATION = re.compile(r"\[#(\d+)\]")
 _CLAUSE = re.compile(r'(?:“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"|[^，,。！？!?；;\n])+')
 _QUOTED = re.compile(r'“([^”]*)”|「([^」]*)」|『([^』]*)』|‘([^’]*)’|"([^"]*)"')
 _REPORT = re.compile(r"声称|宣称|说过|说了|说|表示|提到")
+# shortcut: 只核对明确句式；遇到可复现的漏检或误伤时补充成对用例。
 _BEHAVIOR = re.compile(
     r"(?:一上来就)?急着说话|抢(?:着)?(?:说话|发言|话)|改口|"
+    r"长篇大论|(?:一直|不停|反复)(?:在)?(?:给自己|为自己)?辩解|"
     r"发言(?:太|很|这么|过于)?(?:积极|激进|急|主动)|"
     r"(?:刚才|刚刚|之前|先前|已经|一上来)(?:就)?说|说(?:了|过)|声称|宣称|表示|提到"
 )
+_OBSERVATION = re.compile(r"眼神(?:明显|有些|很)?躲闪|拍(?:了)?桌(?:子)?|表情(?:很|明显)?慌张")
+_DEATH = re.compile(r"死了|死亡|被(?:放逐|投出|票出)(?:了|出局)?|出局了")
+_VOTE_COUNT = re.compile(r"(?:得(?:了)?|获(?:得)?(?:了)?|有)?\s*(\d+)\s*票")
+_PREDICTED = re.compile(r"将|会|可能|大概|预计|估计|应该")
 _SILENCE = re.compile(r"(?:故意|刻意)(?:不说话|不发言|沉默)|(?:躲|逃避)(?:着)?发言")
 _FUTURE = re.compile(r"如果|假如|假设|要是|倘若|等(?:待|到|听)?|发言后|说话后")
 _NEGATIVE = re.compile(r"(?:没有|没|未|不曾|不是|并非|并不|尚无)[^，,。！？!?；;]{0,8}$")
 _DENIED_PREFIX = re.compile(r"(?:不能|无法|并未|未能)(?:证明|说明|认定)|不(?:能)?代表|(?:没有|尚无)(?:记录|证据)(?:能)?证明")
-_TIME = re.compile(r"第\s*(\d+)\s*天|今天|今日|刚才|刚刚|昨天|昨日|前天")
+_TIME = re.compile(r"第\s*(\d+)\s*天|今天|今日|刚才|刚刚|昨天|昨日|前天|昨晚|昨夜")
 
 
 def speech_index(view: Sequence[Event]) -> dict[int, Event]:
@@ -106,6 +112,7 @@ def validate_speech_facts(
     records: dict[int, Event],
     day: int,
     context: SpeechContext | None = None,
+    view: Sequence[Event] | None = None,
 ) -> str | None:
     body_ids = {int(m[1]) for m in _CITATION.finditer(speech)}
     refs = {r.speech_index: r for r in references}
@@ -155,16 +162,45 @@ def validate_speech_facts(
         for i, (start, end, seat) in enumerate(mentions):
             prefix = clause[:start]
             tail = clause[end:mentions[i + 1][0] if i + 1 < len(mentions) else len(clause)]
-            action = _BEHAVIOR.search(tail) or _SILENCE.search(tail)
+            observation = _OBSERVATION.search(tail)
+            death = _DEATH.search(tail) if view is not None else None
+            votes = _VOTE_COUNT.search(tail) if view is not None else None
+            silence = _SILENCE.search(tail)
+            action = min((m for m in (observation, death, votes, _BEHAVIOR.search(tail), silence)
+                          if m is not None), key=lambda m: m.start(), default=None)
             if action is None or _FUTURE.search(prefix + tail[:action.end()]):
                 continue
             if _DENIED_PREFIX.search(prefix):
                 continue
             if _NEGATIVE.search(tail[:action.start()]):
                 continue
-            player_records = [e for e in records.values() if e.seat == seat]
+            if (action is death or action is votes) and _PREDICTED.search(prefix + tail[:action.start()]):
+                continue
             requested_day = _day_at(prefix + tail[:action.end()], day)
-            if _SILENCE.search(tail):
+            if action is observation:
+                return f"文字事件没有 {seat + 1} 号「{observation[0]}」的观察依据"
+            if action is death:
+                deaths = [e for e in view if e.public and (
+                    (e.kind is EventKind.DEATH and seat in e.extra['seats'])
+                    or (e.kind is EventKind.EXILE and e.seat == seat)
+                )]
+                if death[0].startswith("被"):
+                    deaths = [e for e in deaths if e.kind is EventKind.EXILE]
+                if not any(requested_day is None or e.day == requested_day for e in deaths):
+                    return f"公开记录没有 {seat + 1} 号在所述时间「{death[0]}」的事件"
+                continue
+            if action is votes:
+                results = [e for e in view if e.public and e.kind is EventKind.VOTE_RESULT
+                           and (requested_day is None or e.day == requested_day)]
+                if not results:
+                    return "所述时间尚无公开票型，不能编造得票数"
+                result = results[-1]
+                actual = result.extra['tally'].get(seat, 0)
+                if int(votes[1]) != actual:
+                    return f"第 {result.day} 天公开票型中 {seat + 1} 号是 {actual} 票，不是 {votes[1]} 票"
+                continue
+            player_records = [e for e in records.values() if e.seat == seat]
+            if action is silence:
                 if (context is not None and seat in context.remaining) or not any(e.day == day for e in player_records):
                     return f"{seat + 1} 号今天尚未完成发言，正常轮候不能作为故意沉默或躲发言的证据"
             elif not player_records:

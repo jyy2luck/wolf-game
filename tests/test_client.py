@@ -178,38 +178,36 @@ def test_network_failure_degrades_after_client_retries(make_client, monkeypatch)
     assert len(requests) == 3
 
 
-def test_streamed_candidates_stay_private_until_fact_and_leak_checks_pass(make_client):
+def test_streamed_candidates_stay_private_until_fact_checks_pass(make_client):
     def pack(speech):
         return json.dumps({"speech": speech, "suspect": 2, "mood": "平静", "references": []})
 
     client, requests = make_client(
         response(pack("2号一上来就急着说话。"), stream=True),
         response(pack("我是狼，2号可疑。"), stream=True),
-        response(pack("我暂时怀疑2号，还得听听大家的判断。"), stream=True),
     )
     player = AIPlayer(client, seat=5, name="学姐", role=Role.VILLAGER, persona=Persona("学姐", "理性", "从逻辑上讲"))
     deltas = []
     result = player.day_speech([], 1, list(range(6)), on_delta=deltas.append)
-    assert result == ("我暂时怀疑2号，还得听听大家的判断。", 1, "平静")
+    assert result == ("我是狼，2号可疑。", 1, "平静")
     assert deltas == []
-    assert len(requests) == 3 and client.usage.calls == 3
+    assert len(requests) == 2 and client.usage.calls == 2
     assert "2 号整局尚无发言记录" in requests[1]["messages"][-1]["content"]
-    assert "穿帮警告" in requests[2]["messages"][-1]["content"]
 
 
-def test_streamed_truncation_then_leaks_cannot_open_another_retry_loop(make_client):
-    leak = json.dumps({"speech": "我是狼", "suspect": 2})
+def test_streamed_truncation_then_fact_errors_cannot_open_another_retry_loop(make_client):
+    invalid = json.dumps({"speech": "2号刚才长篇大论。", "suspect": 2})
     cfg = LLMConfig("https://api.deepseek.com", "key", "model", max_tokens=500, max_tokens_limit=750)
     client, requests = make_client(
         response("half-json", stream=True, finish="length"),
-        response(leak, stream=True),
-        response(leak, stream=True), config=cfg,
+        response(invalid, stream=True),
+        response(invalid, stream=True), config=cfg,
     )
     player = AIPlayer(client, seat=5, name="学姐", role=Role.WEREWOLF, persona=Persona("学姐", "理性", "从逻辑上讲"))
     player.last_suspect = 3
     assert player.day_speech([], 1, list(range(6))) == (SAFE_SPEECH, None, "平静")
     assert [r["max_tokens"] for r in requests] == [500, 750, 750]
-    assert player.leak_count == 1 and player.last_suspect is None
+    assert player.last_suspect is None
 
 
 def test_prompt_reference_example_is_grounded_in_real_history(make_client):

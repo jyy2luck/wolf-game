@@ -1,4 +1,4 @@
-"""llm/agents 单元测试：mock LLM 返回，覆盖解析成功/重试/降级、穿帮检出/兜底。"""
+"""AI 解析、策略性表达、私有记忆与有界降级。"""
 
 import json
 
@@ -11,6 +11,7 @@ from llm.agents import (
     SAFE_SPEECH,
     AIPlayer,
     Persona,
+    PrivateStrategy,
     VotePack,
     WitchPack,
     SpeechPack,
@@ -21,7 +22,6 @@ from llm.agents import (
     build_wolf_den_prompt,
     build_seer_prompt,
     build_witch_prompt,
-    detect_leak,
     extract_json_block,
     parse_pack,
 )
@@ -87,8 +87,8 @@ def test_action_prompt_examples_are_valid_json(builder, options, schema):
     assert "没有守卫" in messages[0]["content"]
 
 
-def speech_json(speech: str, suspect: int = 0, mood: str = "平静", references=None) -> str:
-    data = {"speech": speech, "suspect": suspect, "mood": mood}
+def speech_json(speech: str, suspect: int = 0, mood: str = "平静", references=None, **extra) -> str:
+    data = {"speech": speech, "suspect": suspect, "mood": mood, **extra}
     if references is not None:
         data["references"] = references
     return json.dumps(
@@ -125,15 +125,23 @@ def test_parse_pack_schema_validation():
     assert pack is not None and err is None
 
 
-def test_detect_leak_matrix():
-    assert detect_leak("我觉得我的队友有问题", Role.VILLAGER) is not None
-    assert detect_leak("我们狼人要赢了", Role.SEER) is not None
-    assert detect_leak("今晚刀口是他", Role.WITCH) is not None  # 女巫也不能提刀口
-    assert detect_leak("我验过3号是好人", Role.SEER) is None
-    assert detect_leak("我验过3号是好人", Role.VILLAGER) is not None
-    assert detect_leak("我救了4号", Role.WITCH) is None
-    assert detect_leak("我救了4号", Role.SEER) is not None
-    assert detect_leak("大家听听我的分析", Role.WEREWOLF) is None
+@pytest.mark.parametrize("role", list(Role))
+@pytest.mark.parametrize("speech", [
+    "我是预言家，我验过3号是狼。",
+    "昨晚我查验了3号，是好人。",
+    "我是女巫，我救了4号，我的毒药还在。",
+    "我昨晚毒了4号。",
+    "我是狼，2号是我的队友。",
+    "我们狼人要赢了。",
+    "今晚刀口是他。",
+])
+def test_all_roles_can_disguise_claim_private_actions_or_reveal_identity(role, speech):
+    player, client = make_player(role=role, replies=[speech_json(speech, 2)])
+    view = [ev.role_assigned(0, player.seat, role.value)]
+    original = list(view)
+    assert player.day_speech(view, 1, ALIVE) == (speech, 1, "平静")
+    assert len(client.calls) == 1
+    assert player.role is role and view == original
 
 
 # ---------------------------------------------------------------- 发言
@@ -182,32 +190,81 @@ def test_day_speech_illegal_suspect_triggers_retry():
     assert "不在存活玩家中" in client.calls[1][-1]["content"]
 
 
-def test_day_speech_leak_retry_then_clean():
-    player, client = make_player(
-        role=Role.WEREWOLF,
-        replies=[
-            speech_json("我和我的队友昨晚聊过，我觉得3号有问题", 3),
-            speech_json("我目前只是暂时怀疑3号，还得听大家的观点。", 3),
-        ],
-    )
-    speech, _, _ = player.day_speech([], 1, ALIVE)
-    assert speech == "我目前只是暂时怀疑3号，还得听大家的观点。"
-    assert player.leak_count == 0
-    assert len(client.calls) == 2
-    assert "警告" in client.calls[1][-1]["content"]  # 重试携带穿帮警告
+STRATEGY = {"assessment": "真实身份是狼人，3号是好人。", "goal": "推动放逐好人。", "claim": "假跳预言家报3号查杀。"}
 
 
-def test_day_speech_double_leak_fallback():
-    player, client = make_player(
-        role=Role.WEREWOLF,
-        replies=[
-            speech_json("我作为狼人觉得2号有问题", 2),
-            speech_json("我们狼人先刀谁？不对，我是说2号有问题", 2),
-        ],
-    )
-    speech, _, _ = player.day_speech([], 1, ALIVE)
-    assert speech == SAFE_SPEECH
-    assert player.leak_count == 1
+@pytest.mark.parametrize("method,args,reply,role", [
+    ("day_speech", (2, ALIVE), speech_json("我继续保留判断。"), Role.WEREWOLF),
+    ("day_vote", (2, ALIVE), '{"vote": 2}', Role.WEREWOLF),
+    ("wolf_den_decision", (2, [0, 2, 3, 4]), '{"target": 3}', Role.WEREWOLF),
+    ("seer_decision", (2, [0, 2, 3, 4]), '{"target": 3}', Role.SEER),
+    ("witch_decision", (2, 0, True, True, ALIVE), '{"save": true, "poison": 0}', Role.WITCH),
+])
+def test_private_strategy_reaches_later_speech_votes_and_night_actions(method, args, reply, role):
+    strategy = {**STRATEGY, "assessment": f"真实身份是{role.value}，假查验只是说辞。"}
+    public = "我是预言家，昨晚验了3号是狼。"
+    player, client = make_player(role=role, seat=1, teammate_seats=[5], replies=[
+        speech_json(public, 3, private_strategy=strategy), reply,
+    ])
+    view = [ev.role_assigned(0, 1, role.value)]
+    result = player.day_speech(view, 1, ALIVE)
+    assert result == (public, 2, "平静")
+    assert player.private_strategy == PrivateStrategy(**strategy)
+    view.append(ev.speech(1, 1, player.name, 1, result[0]))
+    getattr(player, method)(view, *args)
+    system = client.calls[-1][0]["content"]
+    assert player.private_strategy.model_dump_json() in system
+    assert "玩家声明：[#1]" in system and public in system
+    assert "角色私有事实：查验" not in system
+    if method == "day_speech":
+        assert "上轮公开怀疑对象（不等于真实判断）：3 号" in system
+    if method == "day_vote":
+        assert player.my_votes == [(2, 1)]  # 真实投票可以不同于公开攻击对象。
+
+
+def test_failed_candidates_missing_and_null_summaries_preserve_accepted_strategy():
+    rejected = {"assessment": "失败候选秘密", "goal": "失败候选目的", "claim": "失败候选说辞"}
+    player, client = make_player(replies=[
+        speech_json("保留判断。", 2, private_strategy=STRATEGY),
+        speech_json("2号刚才长篇大论。", 2, private_strategy=rejected),
+        speech_json("继续听听。"),
+        speech_json("还是保留意见。", private_strategy=None),
+        *[speech_json("2号抢话。", 2, private_strategy=rejected)] * 3,
+        speech_json("调整看法。", private_strategy={**STRATEGY, "goal": "改为收集信息。"}),
+    ])
+    player.day_speech([], 1, ALIVE)
+    accepted = player.private_strategy
+    original_chat = client.chat
+
+    def chat(messages, **kwargs):
+        assert player.private_strategy is accepted
+        return original_chat(messages, **kwargs)
+
+    client.chat = chat
+    player.day_speech([], 2, ALIVE)
+    player.day_speech([], 2, ALIVE)
+    assert player.private_strategy is accepted
+    assert player.day_speech([], 3, ALIVE) == (SAFE_SPEECH, None, "平静")
+    assert player.last_suspect is None and player.private_strategy is accepted
+    assert player.day_speech([], 4, ALIVE)[0] == "调整看法。"
+    assert player.private_strategy.goal == "改为收集信息。"
+
+
+@pytest.mark.parametrize("field,limit", [("assessment", 120), ("goal", 60), ("claim", 120)])
+def test_private_strategy_limits_retry_without_logging_private_content(field, limit, caplog):
+    secret = "隐私" * (limit + 1)
+    player, client = make_player(replies=[
+        speech_json("保留判断。", private_strategy={**STRATEGY, field: secret}),
+        speech_json("继续听听。", private_strategy=STRATEGY),
+    ])
+    assert player.day_speech([], 1, ALIVE)[0] == "继续听听。"
+    assert len(client.calls) == 2 and player.private_strategy == PrivateStrategy(**STRATEGY)
+    assert secret not in caplog.text
+
+
+def test_legacy_pack_defaults_to_no_private_strategy():
+    pack, err = parse_pack(speech_json("保留意见。"), SpeechPack)
+    assert err is None and pack.private_strategy is None
 
 
 def test_day_speech_oversized_speech_truncated():
@@ -244,6 +301,11 @@ def test_day_vote_dead_target_retry():
     target = player.day_vote([], 1, [0, 1, 2, 3])  # 5 号（座位6）已死
     assert target == 0
     assert "不在存活玩家中" in client.calls[1][-1]["content"]
+
+
+def test_wolf_can_vote_for_known_teammate():
+    player, _ = make_player(role=Role.WEREWOLF, teammate_seats=[1], replies=['{"vote": 2}'])
+    assert player.day_vote([], 1, ALIVE) == 1
 
 
 # ---------------------------------------------------------------- 技能决策

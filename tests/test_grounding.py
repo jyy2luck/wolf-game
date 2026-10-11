@@ -25,9 +25,10 @@ def reference(index=3, seat=2, day=1, quote="我怀疑 4 号"):
 
 
 def check(text, refs=(), history=None, day=2, context=SECOND_DAY):
+    view = HISTORY if history is None else history
     return validate_speech_facts(
         text, [SpeechReference(**r) for r in refs],
-        records=speech_index(HISTORY if history is None else history), day=day, context=context,
+        records=speech_index(view), day=day, context=context, view=view,
     )
 
 
@@ -78,6 +79,9 @@ def test_references_default_to_empty_but_legacy_citations_fail():
     "2号已经改口了。",
     "3号故意不说话，4号躲发言。",
     "大树故意沉默。",
+    "2号长篇大论，一直在给自己辩解。",
+    "我觉得阿飞刚才长篇大论。",
+    "2号一直辩解。",
 ])
 def test_first_speaker_cannot_invent_speech_or_intentional_silence(speech):
     assert check(speech, history=[], day=1, context=FIRST) is not None
@@ -92,6 +96,11 @@ def test_first_speaker_cannot_invent_speech_or_intentional_silence(speech):
     "还没听到 3、4 号今天的观点，暂时无法判断。",
     "2 号并没有说过这句话。",
     "我是好人，我暂时怀疑 2 号。",
+    "我是预言家，昨晚我验了2号是狼。",
+    "我是女巫，昨晚我救了2号。",
+    "如果2号眼神躲闪，我可能会怀疑他。",
+    "2号并没有眼神躲闪。",
+    "2号没有拍桌子。",
 ])
 def test_waiting_hypothetical_negative_and_role_play_are_allowed(speech):
     assert check(speech, history=[], day=1, context=FIRST) is None
@@ -144,16 +153,16 @@ def test_fallback_clears_previous_and_failed_suspect():
     assert player.last_suspect is None and len(client.calls) == 3
 
 
-@pytest.mark.parametrize("replies,expected_calls", [
-    (["bad JSON", speech_json("2号抢话。"), speech_json("我是狼", 2)], 3),
-    ([speech_json("我是狼", 2), "bad JSON", speech_json("我是狼", 2)], 3),
-    ([speech_json("我是狼", 2), speech_json("我是狼", 2), speech_json("安全的话")], 2),
+@pytest.mark.parametrize("replies,expected,expected_calls", [
+    (["bad JSON", speech_json("2号抢话。"), "bad JSON"], (SAFE_SPEECH, None, "平静"), 3),
+    (["bad JSON", speech_json("2号抢话。"), speech_json("我是狼", 2)], ("我是狼", 1, "平静"), 3),
+    ([speech_json("我是狼", 2)], ("我是狼", 1, "平静"), 1),
 ])
-def test_mixed_errors_share_three_attempts_and_only_one_leak_correction(replies, expected_calls):
+def test_mixed_errors_share_three_attempts_without_rejecting_role_play(replies, expected, expected_calls):
     player, client = make_player(role=Role.WEREWOLF, seat=5, replies=replies)
-    assert player.day_speech([], 1, ALIVE, context=FIRST) == (SAFE_SPEECH, None, "平静")
+    assert player.day_speech([], 1, ALIVE, context=FIRST) == expected
     assert len(client.calls) == expected_calls
-    assert player.last_suspect is None
+    assert player.last_suspect == expected[1]
 
 
 def test_truncation_fact_and_format_failures_share_budget_and_ceiling():
@@ -184,3 +193,53 @@ def test_reference_cut_by_final_length_limit_is_revalidated():
     assert player.day_speech(HISTORY, 2, ALIVE)[0] == "我暂时保留判断。"
     assert len(client.calls) == 2
     assert "未在正文使用" in client.calls[1][-1]["content"]
+
+
+@pytest.mark.parametrize("text", ["2号眼神躲闪。", "阿飞拍桌子抢话。", "2号表情明显慌张。"])
+def test_text_only_history_does_not_prove_visual_observations(text):
+    assert "观察依据" in check(text)
+
+
+def test_real_quote_can_be_selected_and_motives_can_be_distorted_but_words_cannot_be_forged():
+    history = [ev.speech(1, 1, "阿飞", 1, "我暂时怀疑3号，但证据还不够。")]
+    refs = [reference(1, 2, 1, "我暂时怀疑3号")]
+    allowed = "第1天2号在[#1]说过‘我暂时怀疑3号’，2号嘴上说证据不足，其实就是想把3号推出去。"
+    assert check(allowed, refs, history=history) is None
+    assert "引号内" in check("第1天2号在[#1]说过‘3号一定是狼’。", refs, history=history)
+
+
+@pytest.mark.parametrize("claim", ["2号眼神躲闪", "2号长篇大论", "2号死了", "2号有3票"])
+def test_rebutting_supported_quotes_does_not_adopt_their_false_records(claim):
+    history = [ev.speech(1, 5, "学姐", 1, claim)]
+    refs = [reference(1, 6, 1, claim)]
+    assert check(f"6号在[#1]声称‘{claim}’，但这不是系统确认的事实。", refs,
+                 history=history, day=1, context=FIRST) is None
+
+
+@pytest.mark.parametrize("text", ["2号说过自己有3票。", "2号说过自己死了。"])
+def test_public_results_do_not_substitute_for_a_claimed_speech(text):
+    history = [ev.vote_result(1, {1: 3}), ev.exile(1, 1)]
+    assert "整局尚无发言记录" in check(text, history=history)
+
+
+@pytest.mark.parametrize("text,error", [
+    ("2号今天死了。", "公开记录没有"),
+    ("5号昨天死了。", "公开记录没有"),
+    ("5号今天被放逐了。", "公开记录没有"),
+    ("2号今天得了3票。", "尚无公开票型"),
+    ("2号昨天得了2票。", "是 3 票"),
+    ("3号昨天有1票。", "是 0 票"),
+])
+def test_explicit_death_and_vote_conflicts_use_public_events(text, error):
+    history = [ev.vote_result(1, {1: 3}), ev.death(2, [4])]
+    assert error in check(text, history=history)
+
+
+@pytest.mark.parametrize("text", [
+    "5号今天死了。", "5号昨晚死了。", "2号昨天被放逐了。", "2号昨天有3票。",
+    "3号昨天得了0票。", "如果2号死了，我会怀疑3号。", "2号会有3票。",
+    "我估计2号会得到3票。", "2号并没有死了。", "2号昨天并没有得到2票。",
+])
+def test_true_public_results_negations_and_predictions_remain_allowed(text):
+    history = [ev.vote_result(1, {1: 3}), ev.exile(1, 1), ev.death(2, [4])]
+    assert check(text, history=history) is None

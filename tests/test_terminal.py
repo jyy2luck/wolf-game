@@ -13,7 +13,7 @@ from rich.console import Console
 from config import LLMConfig
 from engine import events as ev
 from engine.game import Game
-from llm.agents import AIPlayer, Persona, SAFE_SPEECH
+from llm.agents import AIPlayer, Persona, PrivateStrategy, SAFE_SPEECH
 from llm.client import LLMClient
 from main import Controller, build_game
 from tests.test_game import default_hooks
@@ -54,8 +54,9 @@ class ScriptClient(LLMClient):
 
 @pytest.fixture
 def captured_terminal(monkeypatch):
+    monkeypatch.setenv("TERM", "xterm")
     output = StringIO()
-    console = Console(file=output, width=180, force_terminal=True, color_system=None)
+    console = Console(file=output, width=180, force_terminal=True, color_system=None, legacy_windows=False)
     monkeypatch.setattr(terminal, "console", console)
     stopped = []
     actual_live = terminal.Live
@@ -168,6 +169,23 @@ def test_wait_state_is_cleaned_on_unexpected_exception(captured_terminal):
     assert "清理后可以继续输出" in text_output(output)
 
 
+def test_private_strategy_only_reaches_its_owners_later_decisions(monkeypatch, captured_terminal, caplog):
+    strategy = {"assessment": "私有判断哨兵", "goal": "私有目的哨兵", "claim": "私有说辞哨兵"}
+    game, ui, agents, clients = setup_game([pack(FINAL, private_strategy=strategy)], monkeypatch)
+    game._play_day()
+    ui.render_new()
+    assert agents[5].private_strategy == PrivateStrategy(**strategy)
+    assert strategy["goal"] in clients[5].requests[-1][0][0]["content"]  # 本人的投票。
+    public = json.dumps([(e.text, e.extra) for e in game.events], ensure_ascii=False)
+    output = text_output(captured_terminal[0])
+    for secret in strategy.values():
+        assert secret not in public and secret not in output and secret not in caplog.text
+        for seat, client in clients.items():
+            if seat != 5:
+                assert secret not in json.dumps(client.requests, ensure_ascii=False)
+    assert all(client.public_callbacks == [] for client in clients.values())
+
+
 def test_new_game_has_separate_events_and_ai_state():
     args = Namespace(mock=True, reconfig=False, seed=42)
     first, first_controller, _, _ = build_game(args)
@@ -175,11 +193,15 @@ def test_new_game_has_separate_events_and_ai_state():
     first.events.append(ev.speech(1, ai_seat, first.names[ai_seat], 1, "只属于上一局的发言。"))
     first_controller.agents[ai_seat].my_votes.append((1, 2))
     first_controller.agents[ai_seat].last_suspect = 2
+    first_controller.agents[ai_seat].private_strategy = PrivateStrategy(
+        assessment="上一局判断", goal="上一局目标", claim="上一局说辞",
+    )
     second, second_controller, _, _ = build_game(args)
     assert first.events is not second.events
     assert not any(e.kind is ev.EventKind.SPEECH for e in second.events)
     assert second_controller.agents[ai_seat].my_votes == []
     assert second_controller.agents[ai_seat].last_suspect is None
+    assert second_controller.agents[ai_seat].private_strategy is None
 
 
 def scripted_byte_input(monkeypatch, content, errors="strict"):
