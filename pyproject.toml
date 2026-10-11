@@ -20,3 +20,6 @@ addopts = "-q"
 
 [tool.setuptools]
 packages = ["engine", "llm", "ui"]
+
+[tool.setuptools.package-data]
+llm = ["strategy_library.json"]

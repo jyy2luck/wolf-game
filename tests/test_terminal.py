@@ -96,6 +96,7 @@ def setup_game(replies, monkeypatch):
 
 @pytest.mark.parametrize("replies,expected,attempts", [
     ([pack(BAD, 2), pack(FINAL)], FINAL, 2),
+    ([pack("这段发言需要完整缩写。" * 20), pack(FINAL)], FINAL, 2),
     ([pack(BAD, 2)] * 3, SAFE_SPEECH, 3),
     ([RuntimeError("服务不可用")], SAFE_SPEECH, 1),
 ])

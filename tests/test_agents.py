@@ -9,6 +9,7 @@ from engine import events as ev
 from llm.agents import (
     PERSONA_POOL,
     SAFE_SPEECH,
+    MAX_SPEECH_CHARS,
     AIPlayer,
     Persona,
     PrivateStrategy,
@@ -267,11 +268,37 @@ def test_legacy_pack_defaults_to_no_private_strategy():
     assert err is None and pack.private_strategy is None
 
 
-def test_day_speech_oversized_speech_truncated():
+def test_day_speech_oversized_speech_requests_complete_shorter_reply(caplog):
     long_speech = "字" * 300
-    player, _ = make_player(replies=[speech_json(long_speech, 0)])
-    speech, _, _ = player.day_speech([], 1, ALIVE)
-    assert len(speech) == 150
+    final = "我暂时保留判断。"
+    player, client = make_player(replies=[speech_json(long_speech), speech_json(final)])
+    assert player.day_speech([], 1, ALIVE) == (final, None, "平静")
+    assert len(client.calls) == 2
+    feedback = client.calls[1][-1]["content"]
+    assert "300" in feedback and str(MAX_SPEECH_CHARS) in feedback
+    assert "缩写" in feedback and "references" in feedback
+    assert "校验/length失败" in caplog.text
+
+
+@pytest.mark.parametrize("length", [MAX_SPEECH_CHARS - 1, MAX_SPEECH_CHARS])
+def test_day_speech_within_limit_preserves_complete_body_after_trimming(length):
+    final = "字" * (length - 1) + "。"
+    player, client = make_player(replies=[speech_json(" \n" + final + "\n ")])
+    assert player.day_speech([], 1, ALIVE)[0] == final
+    assert len(client.calls) == 1
+
+
+def test_oversized_speech_exhaustion_preserves_accepted_strategy_and_clears_suspect():
+    rejected = {**STRATEGY, "goal": "不得接受的超长候选计划。"}
+    player, client = make_player(replies=[
+        speech_json("字" * (MAX_SPEECH_CHARS + 1), 2, "愤怒", private_strategy=rejected),
+    ] * 3)
+    accepted = PrivateStrategy(**STRATEGY)
+    player.private_strategy = accepted
+    player.last_suspect = 3
+    assert player.day_speech([], 1, ALIVE) == (SAFE_SPEECH, None, "平静")
+    assert player.private_strategy is accepted and player.last_suspect is None
+    assert len(client.calls) == 3
 
 
 # ---------------------------------------------------------------- 投票

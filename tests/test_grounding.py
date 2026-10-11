@@ -8,7 +8,7 @@ import pytest
 from engine import events as ev
 from engine.game import SpeechContext
 from engine.roles import Role
-from llm.agents import SAFE_SPEECH, SpeechPack, parse_pack
+from llm.agents import MAX_SPEECH_CHARS, SAFE_SPEECH, SpeechPack, parse_pack
 from llm.client import OutputTruncatedError
 from llm.grounding import SpeechReference, speech_index, validate_speech_facts
 from tests.test_agents import ALIVE, make_player, speech_json
@@ -185,14 +185,40 @@ def test_truncation_fact_and_format_failures_share_budget_and_ceiling():
     assert "half-json" not in json.dumps(client.calls)
 
 
-def test_reference_cut_by_final_length_limit_is_revalidated():
+@pytest.mark.parametrize("long_speech", [
+    "字" * MAX_SPEECH_CHARS + "昨天2号在[#3]说过‘我怀疑 4 号’。",
+    "字" * (MAX_SPEECH_CHARS - 2) + "[#3]",
+], ids=["after_limit", "split_marker"])
+def test_oversized_speech_with_late_reference_reports_length_not_fact(long_speech):
+    final = "昨天2号在[#3]说过‘我怀疑 4 号’，我还想听听。"
     player, client = make_player(replies=[
-        speech_json("字" * 150 + "昨天2号[#3]说过这些。", references=[reference()]),
-        speech_json("我暂时保留判断。"),
+        speech_json(long_speech, references=[reference()]),
+        speech_json(final, references=[reference()]),
     ])
-    assert player.day_speech(HISTORY, 2, ALIVE)[0] == "我暂时保留判断。"
+    assert player.day_speech(HISTORY, 2, ALIVE)[0] == final
     assert len(client.calls) == 2
-    assert "未在正文使用" in client.calls[1][-1]["content"]
+    feedback = client.calls[1][-1]["content"]
+    assert "发言超过" in feedback and "未在正文使用" not in feedback
+
+
+def test_reference_at_exact_speech_length_limit_is_kept_and_validated():
+    opening = "昨天2号说过‘我怀疑 4 号’"
+    final = opening + "字" * (MAX_SPEECH_CHARS - len(opening) - len("[#3]")) + "[#3]"
+    player, client = make_player(replies=[speech_json(final, references=[reference()])])
+    assert player.day_speech(HISTORY, 2, ALIVE)[0] == final
+    assert len(client.calls) == 1
+
+
+def test_shortened_speech_still_checks_facts_within_shared_retry_budget():
+    player, client = make_player(replies=[
+        speech_json("字" * MAX_SPEECH_CHARS + "2号抢话。"),
+        speech_json("2号抢话。"),
+        speech_json("等2号发言后再判断。"),
+    ])
+    assert player.day_speech([], 1, ALIVE)[0] == "等2号发言后再判断。"
+    assert len(client.calls) == 3
+    assert "发言超过" in client.calls[1][-1]["content"]
+    assert "整局尚无发言记录" in client.calls[2][-1]["content"]
 
 
 @pytest.mark.parametrize("text", ["2号眼神躲闪。", "阿飞拍桌子抢话。", "2号表情明显慌张。"])

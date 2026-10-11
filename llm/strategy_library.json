@@ -1,0 +1,1722 @@
+{
+  "version": 1,
+  "source": "docs/ai-strategy-library-design.md",
+  "roles": {
+    "平民": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "建立信息结构；记录身份与验人声明，比较不同解释；提出一两个能区分解释的问题；若接近人数线或屠边线，立即提高归票优先级"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "形成可修正站边；结合已有信息选暂定阵营线，识别被多人推动的放逐对象；检查最多狼数分支；出现可靠反证、关键技能信息或高分票风险时改站边"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "判断下一夜；比较放逐候选及其后续减员；避免仅凭存在感低就推出一个人；多狼分支成立且错误放逐会导致危险夜晚时，收紧目标选择"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "区分一狼与两狼；在 2 狼 3 好人分支中优先形成正确集中票；一狼分支中检查隐藏狼和倒钩；规则推断排除某分支后调整风险偏好"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "排除与反倒钩；人数局确认仅一狼；比较三名其他玩家，重审此前“站对边”的人；新信息确认好人后缩小候选，避免重新怀疑确定好人"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "最终选择；人数局确认一狼；在其余两人中选目标，争取另一好人同票；对平票和夜晚防护有明确计划时才考虑等待"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "规则专用残局；仅在其他胜利规则或待结算场景下启用，分析票权、保护与第三方关系；到判胜点后按规则终局，不套用普通三人决赛逻辑"
+      }
+    ],
+    "预言家": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "信息探索与发布窗口；无历史时从未知对象公平选择；有历史时查对不同结果都能改变行动的人；小配置、多狼或屠边危险时提前披露，不因人数多就固定隐藏"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "查关键分歧；查左右站边的未知玩家，或能拆解两套身份解释的对象；发布已有有效信息；对跳、本人或金水被推、下一夜生存机会降低时转主动带队"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "当轮兑现；提高发布真实查杀、保护真实金水与集中投票的优先级；若结果不足以定票，清楚区分真实查验与推测狼坑"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "信息与票数结合；两狼分支下尤其重视当日正确放逐；比较查杀目标和可争取的好人票；缺乏下一轮机会时，不把披露拖到下一天"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "一狼定位；人数局排除双狼，结合真实结果缩小剩余候选；夜验有区分力的未知对象；排除后已唯一定位时，行动优先于重复验证"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "最终信息与说服；用已有真实结果或严密排除指出最后一狼，争取另一好人同票；没有确定结果时保留不确定性，仍作出当前选择"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "特殊规则处理；使用已取得的结果参与屠城、第三方或技能连锁局面；不假设还一定有夜验或白天发布机会"
+      }
+    ],
+    "女巫": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "首夜保人、资源经营；无行为信息时通常提高救人优先级；未知目标的盲毒收益与风险一起比较；已有可靠狼信息、屠边危险或特殊连锁时使用相应专用卡"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "可信信息与用药收益；比较救信息核心、毒高度可疑对象和保留资源；检查 3 狼等危险分支；高可信危险分支中不用药会立即输时，提高行动优先级"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "计算两轮减员；检查白天错放逐后下一夜的救、毒、守和枪，避免默认“还能等”；药量、死亡和狼数解释变化时重新计算"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "一狼/两狼分支；2 狼 3 好人时，救人可阻止刀口减员，毒中狼可改变人数；误毒可能直接输；有解药时比较保命与毒狼，不一律要求冒险毒"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "防止双重好人减员；人数局为 1 狼 3 好人；不用药且仅刀一好人后仍是 1 狼 2 好人，误毒另一好人则可能到 1 狼 1 好人；对最后一狼有强依据时提高直接取胜用毒优先级"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "必须行动的夜晚；人数局为 1 狼 2 好人；无其他防护时，救刀口或毒最后一狼才能阻止次晨判负；自救限制、可用药和其他真实防护改变可选分支"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "技能时序专用；只在待结算或其他胜利规则中讨论用药，严格判断行动窗口是否仍存在；已终局时没有继续用药的机会"
+      }
+    ],
+    "猎人": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "隐藏与正常分析；以好人视角参与判断，降低被绕枪技能针对的概率；无信息且可弃枪时审慎评估盲枪；本人将被错误放逐、必须公开纠偏或枪有明确收益时提高披露优先级"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "威慑与反击目标；评估公开身份能否改善归票；建立可修正的枪口候选；对跳、绕枪危险和多狼临界分支变化时调整"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "计算放逐后反击；比较出狼、误出自己再开枪、误伤另一好人的完整分支；不因能开枪就主动接受无收益的放逐"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "关键身份与枪口；两狼分支下，先确认误放逐后是否还有开枪窗口，再评估能否追击一狼；若胜负先判定，不能依赖终局后的枪追回"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "一狼目标审查；人数局仅一狼，使用可信结果和排除法；可弃枪时比较保留好人票与猜枪；已高度定位最后一狼时提高开枪优先级"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "决定性反击；争取正确投票；死亡时按开枪前人数和规则选择目标，不预设自己一定能逆转；被毒或特殊击杀禁枪时，提前提高白天披露和纠偏优先级"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "待开枪或特殊残局；依规则计算最后一枪、连锁和判胜；可能是普通人数表无法描述的过渡状态；仅在技能窗口真实存在时推荐枪击行动"
+      }
+    ],
+    "狼人": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "分工与可信视角；协调是否悍跳、谁配合、谁保留；规划刀口和可维持的声明；已有接近屠边或人数胜利机会时提高兑现优先级"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "争取关键票；精确计算本方票、可争取的好人票和最高票规则；避免所有狼同时暴露同一保护关系；假预言家失去可信度或队友受到查杀时调整分工"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "夜刀与白天联动；两狼时比较错放逐加夜刀能否取胜；一狼时经营单人可信身份；女巫毒、猎人枪或守卫防护改变终局分支时调整刀口"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "区分双狼和独狼；2 狼 3 好人时集中票推动错误放逐，或评估平票后的夜晚；1 狼 4 好人时避免无收益暴露；目标票数不足、反击资源仍在或假声明被反证时换目标"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "独狼对抗；人数局仅剩一狼，争取一张关键好人票，保留可被误放逐的目标；不再使用保护存活狼队友的计划；死队友历史可用于解释"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "取胜兑现；人数局为一狼两好人，集中说服其中一人误投另一人；评估平票后的防护和反击；另一好人持可用解药、毒、枪等时不把夜晚视作自动胜利"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "完整结算与其他胜利条件；检查待开枪、连锁、屠城或第三方博弈；已到终局不再推荐补充行动"
+      }
+    ],
+    "守卫": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "比较首夜空守与守人，观察谁能提供关键技能或信息；同守同救无冲突时，不能照搬“首夜必须空守”"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "在信息核心、自守和高概率刀口之间选择，检查连续守护限制；多狼或屠边危险提高阻止关键减员的优先级"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "计算接下来一刀的后果，避免只重复“预言家、自守”固定轮换；当前信息核心不可信、身份类别濒危或本人被针对时改目标"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "评估 2 狼 3 好人和 1 狼 4 好人分支，保护能延续游戏或保留决定性技能的人；已知女巫救人计划只在真实可见或合法沟通范围内使用"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "人数局仅一狼，判断其最有价值刀口；评估守神职与保留好人票；根据连守限制和夜刀历史改变预测，避免可被机械猜中的固定顺序"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "人数局需要防止关键好人死亡，结合自守、禁连守与其他防护选目标；没有合法有效守护目标时，不虚构能保出下一天的方案"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "只在其他胜利规则或特殊技能窗口下比较最后守护；判胜已经完成时不能补守"
+      }
+    ],
+    "白痴": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "正常分析与表水，保留票权；隐藏技能是否有利要看特殊狼和胜利条件；面临无法纠偏的错误放逐时比较亮身份与触发技能"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "评估翻牌信息、白天放逐机会和失票代价；不把消耗好人的放逐轮次一律当作浪费狼队资源"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "检查失票后好人能否仍形成足够最高票；自己已经翻牌时提高信息组织作用，停止把自己计入可投票者"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "两狼分支下尤其比较实际阵营票权；避免为自证主动丢掉关键票；若技能能阻止本次放逐直接判负，则按真实触发顺序使用"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "人数局仅一狼，保留或争取好人集中票；翻牌后协助剩余投票者判断；身份已公开且属规则确认时无需重复表水，重点贡献目标判断"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "一狼两好人人数不代表好人有两票；失票会明显改变最高票与平票分支；无票时依赖说服、夜间防护和合法技能，而非不存在的自己一票"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "在屠边、屠城等规则中检查自身角色分类、免死资源及夜刀；已用免放逐技能不能据此防狼刀，除非另有明确能力"
+      }
+    ],
+    "白狼王": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "模仿好人视角隐藏，推断关键目标，比较立即爆破与保留技能；明确信息核心或屠边目标出现时提高爆破优先级"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "比较去除信息、票权和防护的收益，以及自身减少一狼的成本；不能仅因自己受怀疑就默认自爆最优"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "计算自爆双方减员后及下一夜的局面，协调剩余狼队计划；特殊角色反击、判胜先后或没有合法窗口时重算"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "两狼时比较交换关键好人与保留两张狼票；独狼时检查自爆后是否已无狼；不依赖“只要带人就赚”的固定判断"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "人数局通常只剩自己一狼；自爆可能先使狼全灭，收益必须按完整规则计算；只有规则允许的连锁或目标胜利分支能成立时才启用取胜自爆卡"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "优先比较普通误放逐路线与特殊技能路线；不把带走一名好人自动等同狼胜，检查自爆导致的狼全灭"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "使用特殊技能与多目标同时胜利的明确裁决；行动窗口或本阵营胜利条件已不成立时退出"
+      }
+    ],
+    "狼美人": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "隐藏身份，选择潜在关键目标，保留普通狼的配合计划；没有可靠具体身份信息时使用候选解释，不直接读取神职表"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "比较连结信息核心、防护者、关键票者与普通好人；目标下一夜可能正常死亡、连结失效或禁连选时及时换目标"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "展开自身出局连带与狼刀分支，判断是否能达到实际胜利条件；不能把“绑住神职”本身当作已经阻止其当轮技能"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "两狼时评估牺牲自身能否留下另一狼的取胜局面；独狼时检查自身死后的阵营裁决；技能是否触发于毒杀或放逐改变可用方案"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "人数局只剩一狼，比较普通误放逐路线与连带特殊路线；自己死亡可能导致狼全灭，必须检查连锁后判胜"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "精确计算最后连结、有效票与对手反击；对方不知道连结时不能依赖公开威慑；知道也不代表会帮狼"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "仅在技能待触发、屠城或第三方结算中使用特定卡；按连带死亡和同时胜利的规则停止或继续"
+      }
+    ],
+    "丘比特": [
+      {
+        "min_alive": 9,
+        "max_alive": null,
+        "guidance": "首夜在合法目标中选择连结，随后依据真实可见关系确认目标；隐藏或披露关系要有收益；看不到目标身份时不使用全知最优情侣搭配"
+      },
+      {
+        "min_alive": 7,
+        "max_alive": 8,
+        "guidance": "比较保护情侣、帮助原阵营或推动第三方路线，计算一方死亡的连锁风险；恋人关系不自动改变阵营，只有规则确认后更新"
+      },
+      {
+        "min_alive": 6,
+        "max_alive": 6,
+        "guidance": "结合狼数候选与关联减员判断危险，维护可兑现的投票合作；私下交流仅在规则允许时采用；不能直接共享全部私有结果"
+      },
+      {
+        "min_alive": 5,
+        "max_alive": 5,
+        "guidance": "计算本方实际票权、对手技能及情侣同时减员分支；不沿用普通两狼/一狼人数表确定所有人的立场"
+      },
+      {
+        "min_alive": 4,
+        "max_alive": 4,
+        "guidance": "比较不同放逐对象带来的连锁、存活阵营与胜负裁决；若情侣仍属普通阵营，继续服务其实际阵营目标"
+      },
+      {
+        "min_alive": 3,
+        "max_alive": 3,
+        "guidance": "依据专属终局条件选择投票与关系披露，检查“剩下情侣”是否真的已胜；非情侣的丘比特是否需要存活、是否属于第三方均按板子定义"
+      },
+      {
+        "min_alive": 0,
+        "max_alive": 2,
+        "guidance": "检查情侣存活、原阵营、第三方胜利与连锁后的终局；不能把“两人情侣存活”跨板子视作自动胜利"
+      }
+    ]
+  },
+  "cards": [
+    {
+      "id": "C01",
+      "role": "*",
+      "name": "事实与声明分离",
+      "guidance": "将查验、救人、投票声明按来源记录，使用真正可见的事件核对",
+      "adjustment": "新硬事实出现时重算；自己的假查验仍只是说辞",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "wolf_kill",
+        "seer_check",
+        "witch_act",
+        "hunter_shot",
+        "guard",
+        "link",
+        "special",
+        "last_words"
+      ],
+      "priority": 100,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C02",
+      "role": "*",
+      "name": "比较多种解释",
+      "guidance": "为不同预言家、女巫声明建立条件局面，检查能否解释已知事实",
+      "adjustment": "不因说法复杂就加分；无法兼容硬事实的解释淘汰",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "seer_check",
+        "witch_act"
+      ],
+      "priority": 35,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C03",
+      "role": "*",
+      "name": "评估分票风险",
+      "guidance": "使用公开站边与投票意向估计可能票数，并标注未知票",
+      "adjustment": "实际投票未公开前，不声称知道他人已投哪一票",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C04",
+      "role": "*",
+      "name": "按证据改判断",
+      "guidance": "新信息改变原判断时说明具体原因，允许公开改口",
+      "adjustment": "不为维持一致性固守已失效判断",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 45,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C05",
+      "role": "*",
+      "name": "检查人数危险",
+      "guidance": "比较错放逐、平票、狼刀、技能命中的分支",
+      "adjustment": "规则或候选狼数变化后重新评估",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "wolf_kill",
+        "seer_check",
+        "witch_act",
+        "hunter_shot",
+        "guard",
+        "link",
+        "special",
+        "last_words"
+      ],
+      "priority": 100,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C06",
+      "role": "*",
+      "name": "反套路",
+      "guidance": "检查倒钩、互踩、集体带票、假金水是否也能解释行为",
+      "adjustment": "站对一次边、投过一次狼、互相攻击均不自动认证身份",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 55,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C07",
+      "role": "*",
+      "name": "信息披露",
+      "guidance": "判断公开信息对投票的收益、暴露技能角色的代价与最后发布窗口",
+      "adjustment": "即将出局或危险增加时提高披露优先级",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 65,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C08",
+      "role": "*",
+      "name": "保留历史",
+      "guidance": "记录身份声明、验人声明、站边变化、真实可见的票型",
+      "adjustment": "不以他人转述替代原话；出局者历史继续保留",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "wolf_kill",
+        "seer_check",
+        "witch_act",
+        "hunter_shot",
+        "guard",
+        "link",
+        "special",
+        "last_words"
+      ],
+      "priority": 30,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "C09",
+      "role": "*",
+      "name": "文字依据",
+      "guidance": "引用实际存在的发言与公开行为；按规则要求引用编号",
+      "adjustment": "语气是弱线索，不凭空补充眼神、动作或未轮到者的沉默",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 75,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "V01",
+      "role": "平民",
+      "name": "有内容的表水",
+      "guidance": "交代自己依据、暂定目标和什么信息会改判断",
+      "adjustment": "自称好人不构成自证；避免占满发言却不给行动方向",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 65,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "V02",
+      "role": "平民",
+      "name": "双预言家比较",
+      "guidance": "对照验人时间线、结果和已知事实，给出条件站边",
+      "adjustment": "真预言家不一定语气更稳；对跳也可能包含好人试探",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 75,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": [
+        "has_public_speech"
+      ]
+    },
+    {
+      "id": "V03",
+      "role": "平民",
+      "name": "被假查杀回应",
+      "guidance": "依据自己的真实身份指出查杀声明为假，解释判断与准备投票目标",
+      "adjustment": "假声明不直接证明其为狼，继续结合整体局面",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 55,
+      "required_rules": [],
+      "required_flags": [
+        "has_public_speech"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "V04",
+      "role": "平民",
+      "name": "关键归票",
+      "guidance": "在目标较可信且分票危险时推动集中票",
+      "adjustment": "若主导者与硬事实冲突，停止跟随并提出替代目标",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 95,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": [
+        "critical_possible"
+      ]
+    },
+    {
+      "id": "V05",
+      "role": "平民",
+      "name": "掩护与挡刀",
+      "guidance": "在保护关键技能能提高阵营胜算时隐去平民身份或穿衣服",
+      "adjustment": "自己减员也影响胜负；避开会诱使女巫误毒或造成错误归票的说辞",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 45,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [
+        "critical_possible"
+      ],
+      "boost_flags": []
+    },
+    {
+      "id": "V06",
+      "role": "平民",
+      "name": "假跳试探",
+      "guidance": "有明确试探对象、回收窗口及撤回计划时使用",
+      "adjustment": "单次发言、无遗言或 D=1 时显著降低优先级；下一天不一定存在",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 20,
+      "required_rules": [
+        "repeat_daily_speech"
+      ],
+      "required_flags": [],
+      "excluded_flags": [
+        "critical_possible"
+      ],
+      "boost_flags": []
+    },
+    {
+      "id": "V07",
+      "role": "平民",
+      "name": "反倒钩排除",
+      "guidance": "重审被保、站对边、踩过狼的玩家是否始终推动阵营收益",
+      "adjustment": "避免为了“找深水”推翻已确认阵营信息",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 70,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": [
+        "small_population"
+      ]
+    },
+    {
+      "id": "S01",
+      "role": "预言家",
+      "name": "首夜公平探索",
+      "guidance": "没有行为信息时，选择合法未知对象，可用局内随机方式打破平局",
+      "adjustment": "不依据姓名、人类/AI标签或未提供的上局记忆定狼",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "seer_check"
+      ],
+      "priority": 95,
+      "required_rules": [],
+      "required_flags": [
+        "first_night"
+      ],
+      "excluded_flags": [
+        "has_check"
+      ],
+      "boost_flags": []
+    },
+    {
+      "id": "S02",
+      "role": "预言家",
+      "name": "关键查验",
+      "guidance": "比较“验好”和“验狼”分别能改变什么；兼顾结果传播机会",
+      "adjustment": "高嫌疑不是唯一优先级；阵营固定、查验稳定时已确认对象通常无需重复查",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "seer_check"
+      ],
+      "priority": 100,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "S03",
+      "role": "预言家",
+      "name": "查杀带队",
+      "guidance": "报真实天数、目标与阵营结果，推动当轮处理",
+      "adjustment": "真查杀与其他推测分开，不把反对者一并定狼",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 150,
+      "required_rules": [],
+      "required_flags": [
+        "has_wolf_check"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "S04",
+      "role": "预言家",
+      "name": "金水合作",
+      "guidance": "在合适时机提供好人结果，争取协作和集中票",
+      "adjustment": "真实金水可判断错误；对外金水声明的可信度仍依赖发言者",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 95,
+      "required_rules": [],
+      "required_flags": [
+        "has_good_check"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "S05",
+      "role": "预言家",
+      "name": "对跳回应",
+      "guidance": "维护真实结果，指出对方具体声明冲突，回应摇摆好人的疑问",
+      "adjustment": "对跳者可能是好人穿衣服；对方被真实验好时不继续当狼处理",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [],
+      "required_flags": [
+        "has_public_speech"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "S06",
+      "role": "预言家",
+      "name": "暂时隐藏",
+      "guidance": "无必须公布的信息，且隐藏能提高后续信息收益时使用",
+      "adjustment": "本人/金水被推、查杀出现、危险增加或最后发言窗口到来时退出",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 45,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [
+        "critical_possible",
+        "has_wolf_check"
+      ],
+      "boost_flags": []
+    },
+    {
+      "id": "S07",
+      "role": "预言家",
+      "name": "信息遗产",
+      "guidance": "允许遗言时重述已有真实结果；有警徽机制时使用板子支持的传递规则",
+      "adjustment": "未来查验计划不是已发生结果；死亡后无法发布的结果不能靠意向补齐",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "last_words"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "last_words"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W01",
+      "role": "女巫",
+      "name": "首夜救人",
+      "guidance": "无可靠行为信息时，救人通常保留更多好人和白天票",
+      "adjustment": "结合自刀、保护冲突、首夜禁救等规则调整；不是跨板子绝对命令",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "witch_act"
+      ],
+      "priority": 140,
+      "required_rules": [
+        "witch_save"
+      ],
+      "required_flags": [
+        "first_night",
+        "antidote_available"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W02",
+      "role": "女巫",
+      "name": "自救保行动",
+      "guidance": "被刀且可自救时比较自救后的行动价值",
+      "adjustment": "放弃自救通常意味着当夜死亡，不能声称把药留到自己以后的夜晚",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "witch_act"
+      ],
+      "priority": 150,
+      "required_rules": [
+        "witch_self_save"
+      ],
+      "required_flags": [
+        "knife_is_self",
+        "antidote_available"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W03",
+      "role": "女巫",
+      "name": "有依据用毒",
+      "guidance": "比较真实信息、可信声明和行为；检查命中与误伤后果",
+      "adjustment": "对跳、自称狼、语气强势不单独构成确定狼信息",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "witch_act"
+      ],
+      "priority": 100,
+      "required_rules": [],
+      "required_flags": [
+        "poison_available"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W04",
+      "role": "女巫",
+      "name": "危急用毒",
+      "guidance": "在无可用救人与防护、等待会输的可信局面中选择最有依据的目标",
+      "adjustment": "风险增加可降低行动门槛；仍不把猜测写成确定身份",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "witch_act"
+      ],
+      "priority": 250,
+      "required_rules": [
+        "stable_two_team_parity",
+        "no_other_night_protection",
+        "wolves_kill_only_good",
+        "no_death_counteraction"
+      ],
+      "required_flags": [
+        "poison_available",
+        "antidote_unavailable",
+        "critical_certain",
+        "settled"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W05",
+      "role": "女巫",
+      "name": "刀口信息经营",
+      "guidance": "不允许自刀时将真实刀口排除出狼候选；允许自刀时仅作证据",
+      "adjustment": "不能把玩家自称银水当作自己的私有刀口记录",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "witch_act"
+      ],
+      "priority": 75,
+      "required_rules": [],
+      "required_flags": [
+        "has_knife"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W06",
+      "role": "女巫",
+      "name": "披露纠偏",
+      "guidance": "银水被假查杀、自己被错误推动或好人缺信息时披露必要记录",
+      "adjustment": "公开可信度仍需要争取；可选择隐瞒药量，不伪造公开事件",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 100,
+      "required_rules": [],
+      "required_flags": [
+        "has_knife",
+        "has_public_speech"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "W07",
+      "role": "女巫",
+      "name": "最后反击",
+      "guidance": "当规则允许被刀后当夜用毒，且无法自救时比较最后行动",
+      "adjustment": "毒掉最后一狼能否取胜取决于完整结算和判胜顺序",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "witch_act"
+      ],
+      "priority": 180,
+      "required_rules": [
+        "witch_acts_before_dawn"
+      ],
+      "required_flags": [
+        "knife_is_self",
+        "poison_available"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H01",
+      "role": "猎人",
+      "name": "藏枪",
+      "guidance": "没有必须披露的冲突，且隐藏能保留有效反击时采用",
+      "adjustment": "面临绕枪处决、错误归票或最后信息窗口时退出",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 70,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H02",
+      "role": "猎人",
+      "name": "亮身份纠偏",
+      "guidance": "被假查杀、误归票或好人缺可信带队者时说明真实身份与枪口依据",
+      "adjustment": "生前不能靠自称猎人完成身份认证；对跳者也可能是好人掩护",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 95,
+      "required_rules": [],
+      "required_flags": [
+        "has_public_speech"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H03",
+      "role": "猎人",
+      "name": "有依据开枪",
+      "guidance": "优先真实可确定狼或证据最强目标，结合命中和误伤后的结算",
+      "adjustment": "已确认好人不因情绪或站边分歧成为默认枪口",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "hunter_shot"
+      ],
+      "priority": 130,
+      "required_rules": [
+        "hunter_shot"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H04",
+      "role": "猎人",
+      "name": "无信息弃枪",
+      "guidance": "规则允许，且盲枪可能造成更大阵营损失时比较弃枪",
+      "adjustment": "等待必输或有明确取胜目标时重新评估，不固定“首夜必闷枪”",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "hunter_shot"
+      ],
+      "priority": 100,
+      "required_rules": [
+        "hunter_optional_shot"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H05",
+      "role": "猎人",
+      "name": "枪口威慑",
+      "guidance": "用可执行的公开枪口计划影响狼刀、归票，保留随信息更新的余地",
+      "adjustment": "可能诱使绕枪击杀；威胁也可能让真正好人不敢给出分析",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "hunter_shot"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H06",
+      "role": "猎人",
+      "name": "诱刀与掩护",
+      "guidance": "被正常刀能有效反击且能保护更重要资源时，提高自己的刀口吸引力",
+      "adjustment": "被刀不能开枪、屠边风险、无可靠枪口时降低优先级",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech"
+      ],
+      "priority": 60,
+      "required_rules": [
+        "hunter_shoots_on_wolf_kill"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "H07",
+      "role": "猎人",
+      "name": "最后信息",
+      "guidance": "在允许的遗言或技能前发言窗口交代已有判断",
+      "adjustment": "不假设每种死亡都有遗言，不把遗言安排当作额外正常发言",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "last_words"
+      ],
+      "priority": 100,
+      "required_rules": [
+        "last_words"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L01",
+      "role": "狼人",
+      "name": "悍跳",
+      "guidance": "选择假结果与时间线，争取投票解释权；给好人假金水可争取支持，给队友假金水可保护队友",
+      "adjustment": "避免与已知刀口、公开硬事实冲突；结果被推翻时评估调整或撤回",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 90,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L02",
+      "role": "狼人",
+      "name": "冲锋",
+      "guidance": "本方集中票加可争取票能影响结果时明确支持队友、推动好人出局",
+      "adjustment": "少狼不是禁用理由；队友方案明显失败时避免连带暴露",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 90,
+      "required_rules": [],
+      "required_flags": [
+        "multiple_wolves"
+      ],
+      "excluded_flags": [],
+      "boost_flags": [
+        "critical_possible"
+      ]
+    },
+    {
+      "id": "L03",
+      "role": "狼人",
+      "name": "倒钩",
+      "guidance": "认可真信息，建立信任并为后续错误放逐留空间",
+      "adjustment": "一直帮好人排尽狼会损害胜利目标；需要兑现信用的机会",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 75,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": [
+        "has_public_speech"
+      ]
+    },
+    {
+      "id": "L04",
+      "role": "狼人",
+      "name": "深水",
+      "guidance": "用正常的闭眼视角分析维持低曝光，减少无依据的确定语气",
+      "adjustment": "关键轮次仍需行动；单纯长期模糊容易成为默认放逐对象",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L05",
+      "role": "狼人",
+      "name": "互踩与切割",
+      "guidance": "适度制造分歧，或在队友难以保住时保留另一狼生存机会",
+      "adjustment": "不翻牌时卖狼未必有认证收益；两狼局失去队友的成本高",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 70,
+      "required_rules": [],
+      "required_flags": [
+        "multiple_wolves"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L06",
+      "role": "狼人",
+      "name": "制造分票",
+      "guidance": "放大已存在的判断差异，选择能形成最高票或有利平票的目标",
+      "adjustment": "不凭空编造行为；好人形成一致票或复投规则不利时改变方案",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 100,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L07",
+      "role": "狼人",
+      "name": "刀口选择",
+      "guidance": "比较信息威胁、技能资源、救守概率、猎人反击与白天误放逐价值",
+      "adjustment": "被刀女巫仍可当夜用药；正常刀猎人可能带走狼",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "wolf_kill"
+      ],
+      "priority": 150,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L08",
+      "role": "狼人",
+      "name": "残局冲票",
+      "guidance": "一次错误放逐能取胜时，提高集中行动优先级，必要时承担暴露风险",
+      "adjustment": "技能连锁或判胜时机使计划无法立即兑现时重新计算",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 110,
+      "required_rules": [],
+      "required_flags": [
+        "critical_possible"
+      ],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L09",
+      "role": "狼人",
+      "name": "公共视角经营",
+      "guidance": "真实内幕用于内部目标选择，公开理由使用可见信息或自身策略性声明",
+      "adjustment": "不把自己知道别人是好人直接包装成不存在的公开证据",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "wolf_kill"
+      ],
+      "priority": 90,
+      "required_rules": [],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "L10",
+      "role": "狼人",
+      "name": "自爆与特殊行动",
+      "guidance": "仅在板子存在可调用技能、触发时机和收益明确时使用",
+      "adjustment": "普通认狼声明不产生自爆能力；是否吞信息依赖具体流程",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "special"
+      ],
+      "priority": 100,
+      "required_rules": [
+        "wolf_self_explode"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "GU01",
+      "role": "守卫",
+      "name": "预测刀口",
+      "guidance": "根据狼队收益和公开信息预测；自己的守人计划不自动等于狼刀目标，预测落空后修正",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "guard"
+      ],
+      "priority": 100,
+      "required_rules": [
+        "guard"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "GU02",
+      "role": "守卫",
+      "name": "防护协调",
+      "guidance": "有真实冲突规则和交流窗口时与女巫协调；不假定双方读到彼此私有决策",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "guard"
+      ],
+      "priority": 80,
+      "required_rules": [
+        "guard",
+        "witch_save"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "GU03",
+      "role": "守卫",
+      "name": "关键守护",
+      "guidance": "优先比较阻止立即败局、保存有效技能和普通保人；屠边局加入最后目标类别",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "guard"
+      ],
+      "priority": 120,
+      "required_rules": [
+        "guard"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "GU04",
+      "role": "守卫",
+      "name": "守护诱导",
+      "guidance": "公开暗示或误导刀口可能提高守中概率；暴露自身和被绕开的风险超过收益时退出",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "guard"
+      ],
+      "priority": 70,
+      "required_rules": [
+        "guard"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "ID01",
+      "role": "白痴",
+      "name": "保留票权",
+      "guidance": "在可正常表水与投票时维护好人有效票；不以“我不怕出”主动制造无收益的放逐",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [
+        "idiot_reveal"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "ID02",
+      "role": "白痴",
+      "name": "翻牌纠偏",
+      "guidance": "真正触发且公开认证后，用确定身份提供可信阵营支点；可信身份不保证其推理正确",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [
+        "idiot_reveal"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "ID03",
+      "role": "白痴",
+      "name": "有条件诱推",
+      "guidance": "仅在揭示假查杀、交换信息的收益超过失票与放逐机会损失时比较；危险残局降低优先级",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [
+        "idiot_reveal"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "ID04",
+      "role": "白痴",
+      "name": "无票组织",
+      "guidance": "准确计算剩余票权，推动仍可投票的好人行动；不把自己的公开意向当作真实投票",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 80,
+      "required_rules": [
+        "idiot_reveal"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WK01",
+      "role": "白狼王",
+      "name": "关键目标爆破",
+      "guidance": "比较信息、有效票、毒药、守护和屠边目标；目标身份仍需依据可见信息推断",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_self_explode_carry"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WK02",
+      "role": "白狼王",
+      "name": "中断信息",
+      "guidance": "仅在真实技能允许于该阶段中断时使用；普通认狼不能吞发言或警徽",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_self_explode_carry"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WK03",
+      "role": "白狼王",
+      "name": "保留特殊狼",
+      "guidance": "在尚未出现足够收益目标时采用普通狼打法；受到真实查杀后重新评估窗口",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_self_explode_carry"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WK04",
+      "role": "白狼王",
+      "name": "终局交换",
+      "guidance": "展开自爆、带走、枪和其他连锁后按规则判胜；剩最后一狼时尤其检查狼全灭优先级",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_self_explode_carry"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WB01",
+      "role": "狼美人",
+      "name": "关键连结",
+      "guidance": "依据目标可能提供的技能与票选择，结合连结持续期与触发条件",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_charm"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WB02",
+      "role": "狼美人",
+      "name": "隐藏连结",
+      "guidance": "避免不必要披露，采用普通狼公共视角；公开是否有益取决于目标知情规则",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_charm"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WB03",
+      "role": "狼美人",
+      "name": "连带威慑",
+      "guidance": "只有目标能获知并验证相关关系时评估威慑；不凭空给对方添加被禁票状态",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_charm"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "WB04",
+      "role": "狼美人",
+      "name": "连锁取胜",
+      "guidance": "计算狼美人死亡、连带、猎人枪和情侣反应的完整分支；规则或目标变化时重算",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "special"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "wolf_charm"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "CU01",
+      "role": "丘比特",
+      "name": "合法连结",
+      "guidance": "首夜按可见配置与合法对象选择；是否连自己和后续目标取决于真实规则",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "link"
+      ],
+      "priority": 110,
+      "required_rules": [
+        "couple_link"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "CU02",
+      "role": "丘比特",
+      "name": "关系保护",
+      "guidance": "将情侣一方死亡可能引起的净减员纳入救、守、刀与放逐判断",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "couple_link"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "CU03",
+      "role": "丘比特",
+      "name": "阵营重评",
+      "guidance": "只有真实规则与可见事实支持时更新阵营；同阵营情侣可继续使用对应基础卡",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "couple_link"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    },
+    {
+      "id": "CU04",
+      "role": "丘比特",
+      "name": "第三方终局",
+      "guidance": "独立计算目标、票权和连锁，以真实胜利条件评估公开伪装与行动，不套普通人数线",
+      "adjustment": "结合新信息与实际规则修正。",
+      "min_alive": 1,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote"
+      ],
+      "priority": 90,
+      "required_rules": [
+        "couple_link"
+      ],
+      "required_flags": [],
+      "excluded_flags": [],
+      "boost_flags": []
+    }
+  ]
+}
