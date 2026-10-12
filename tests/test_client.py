@@ -71,7 +71,7 @@ def test_defaults_produce_complete_reply_and_count_usage(make_client, stream):
     assert client.chat([{"role": "user", "content": "Return JSON"}], stream=stream, on_delta=deltas.append) == '{"vote": 2}'
     assert requests[0]["max_tokens"] == 4096
     assert requests[0]["response_format"] == {"type": "json_object"}
-    assert requests[0]["thinking"] == {"type": "disabled"}
+    assert requests[0]["thinking"] == {"type": "enabled"}
     assert client.usage.calls == 1 and client.usage.total_tokens == 30
     assert deltas == (['{"vote": 2}'] if stream else [])
 
@@ -124,6 +124,7 @@ def test_maximum_structured_attempts_degrade_speech_or_vote(make_client, stream)
         assert player.day_vote([], 1, list(range(6))) is None
     assert [r["max_tokens"] for r in requests] == [500, 1000, 2000]
     assert client.usage.calls == 3
+    assert client.usage.structured_retries == 2 and client.usage.fallback_actions == 1
 
 
 def test_budget_ceiling_stops_useless_retries(make_client):
@@ -141,6 +142,7 @@ def test_format_retry_keeps_budget_and_includes_error(make_client):
     assert [r["max_tokens"] for r in requests] == [4096, 4096]
     assert requests[1]["messages"][-2] == {"role": "assistant", "content": "bad JSON"}
     assert "无法使用" in requests[1]["messages"][-1]["content"]
+    assert client.usage.structured_retries == 1 and client.usage.fallback_actions == 0
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -155,7 +157,8 @@ def test_missing_usage_still_counts_call(make_client, stream):
     ("https://provider.example/v1", None, None, False, None),
     ("https://provider.example/v1", True, "disabled", True, "disabled"),
     ("https://api.deepseek.com", False, "enabled", False, "enabled"),
-    ("https://api.deepseek.com/v1", None, None, True, "disabled"),
+    ("https://api.deepseek.com/v1", None, "disabled", True, "disabled"),
+    ("https://api.deepseek.com/v1", None, None, True, "enabled"),
     ("https://api.deepseek.com.provider.example", None, None, False, None),
 ])
 def test_provider_options_are_compatible_and_overridable(make_client, base_url, json_mode, thinking, expected_json, expected_thinking):

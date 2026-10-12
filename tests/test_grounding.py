@@ -269,3 +269,29 @@ def test_explicit_death_and_vote_conflicts_use_public_events(text, error):
 def test_true_public_results_negations_and_predictions_remain_allowed(text):
     history = [ev.vote_result(1, {1: 3}), ev.exile(1, 1), ev.death(2, [4])]
     assert check(text, history=history) is None
+
+
+@pytest.mark.parametrize("text,error", [
+    ("2号昨天投给4号。", "投给3号"),
+    ("2号昨天弃票。", "投给3号"),
+    ("3号昨天投给2号。", "弃票"),
+])
+def test_personal_votes_cannot_be_rewritten(text, error):
+    history = [ev.vote_result(1, {2: 1}, [(1, 2), (2, None)])]
+    assert error in check(text, history=history, day=2)
+
+
+@pytest.mark.parametrize("text", [
+    "2号昨天投给3号。", "3号昨天弃票。", "2号昨天把票投给了3号。",
+    "我估计2号会投给4号。", "如果2号投给4号，我会改变判断。",
+])
+def test_recorded_personal_votes_and_predictions_are_allowed(text):
+    history = [ev.vote_result(1, {2: 1}, [(1, 2), (2, None)])]
+    assert check(text, history=history, day=2) is None
+
+
+def test_aggregate_votes_cannot_prove_personal_votes_and_quotes_remain_rebuttable():
+    assert "尚无公开个人票型" in check("2号昨天投给3号。", history=[ev.vote_result(1, {2: 2})], day=2)
+    history = [ev.vote_result(1, {2: 1}, [(1, 2)]), ev.speech(2, 5, "学姐", 1, "2号昨天投给4号。")]
+    assert check("6号在[#1]说过‘2号昨天投给4号。’，这与公开记录冲突。",
+                 [reference(1, 6, 2, "2号昨天投给4号。")], history=history, day=2) is None

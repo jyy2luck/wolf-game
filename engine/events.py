@@ -24,6 +24,7 @@ class EventKind(str, enum.Enum):
     ROLE_ASSIGNED = "role_assigned"      # 本人得知自己的角色
     WOLF_REVEAL = "wolf_reveal"          # 狼人得知队友（开局）
     WOLF_KILL = "wolf_kill"              # 狼人确认刀口目标（夜）
+    WOLF_PLAN = "wolf_plan"              # 狼队共享主观计划
     SEER_CHECK = "seer_check"            # 预言家查验结果（夜）
     WITCH_KNEW = "witch_knew"            # 女巫得知当晚刀口（夜）
     POTION_USED = "potion_used"          # 女巫用药记录（夜）
@@ -119,6 +120,11 @@ def wolf_kill(day: int, wolf_seats: Iterable[int], target: int) -> Event:
     )
 
 
+def wolf_plan(day: int, wolf_seats: Iterable[int], plan: str) -> Event:
+    return _make(EventKind.WOLF_PLAN, day, Phase.NIGHT,
+                 f"狼队共享计划（可调整）：{plan}", public=False, viewers=wolf_seats, plan=plan)
+
+
 def seer_check(day: int, seer_seat: int, target: int, is_wolf: bool) -> Event:
     result = "狼人" if is_wolf else "好人"
     return _make(
@@ -181,22 +187,28 @@ def peaceful_night(day: int) -> Event:
     )
 
 
-def speech(day: int, seat: int, name: str, index: int, content: str) -> Event:
+def speech(day: int, seat: int, name: str, index: int, content: str, *, round_number: int = 1) -> Event:
+    label = "（回应）" if round_number == 2 else ""
     return _make(
         EventKind.SPEECH, day, Phase.DAY,
-        f"[#{index}] {name}（{seat + 1} 号）：{content}",
-        public=True, seat=seat, speech_index=index, name=name, content=content,
+        f"[#{index}] {name}（{seat + 1} 号）{label}：{content}",
+        public=True, seat=seat, speech_index=index, name=name, content=content, round_number=round_number,
     )
 
 
-def vote_result(day: int, tally: dict[int, int]) -> Event:
-    votes = "，".join(
+def vote_result(day: int, tally: dict[int, int], votes: list[tuple[int, int | None]] | None = None) -> Event:
+    totals = "，".join(
         f"{seat + 1} 号 {count} 票" for seat, count in sorted(tally.items())
     )
+    details = "" if votes is None else "；个人投票：" + "，".join(
+        f"{seat + 1}号→{target + 1}号" if target is not None else f"{seat + 1}号弃票"
+        for seat, target in votes
+    )
+    extra = {} if votes is None else {"votes": list(votes)}
     return _make(
         EventKind.VOTE_RESULT, day, Phase.DAY,
-        f"票型：{votes}",
-        public=True, tally=dict(tally),
+        f"票型：{totals}{details}",
+        public=True, tally=dict(tally), **extra,
     )
 
 

@@ -88,6 +88,70 @@ def test_double_death_does_not_assign_death_causes_by_list_order():
     assert result.situation.wolf_counts == (1,)
 
 
+@pytest.mark.parametrize("role,events,options", [
+    (Role.SEER, [ev.seer_check(1, 0, 1, False)], {}),
+    (Role.WITCH, [ev.witch_knew(2, 0, 1)], {"kill_target": 1}),
+])
+def test_three_player_hard_facts_identify_last_wolf(role, events, options):
+    result = advice(role=role, alive=[0, 1, 2], view=events, **options)
+    assert result.situation.known_wolves & result.situation.alive == {2}
+    assert result.situation.wolf_counts == (1,)
+    assert "错放逐一名好人会立即" in result.text
+
+
+def test_all_wolves_confirmed_eliminates_other_wolf_candidates():
+    result = advice(role=Role.SEER, alive=list(range(6)), view=[
+        ev.seer_check(1, 0, 1, True), ev.seer_check(2, 0, 2, True),
+    ])
+    assert result.situation.known_good == {0, 3, 4, 5}
+
+
+@pytest.mark.parametrize("text", [
+    "我先听听大家的意见。", "我不是预言家。", "如果我是预言家，我验了1号是狼。",
+    "2号说我是预言家。", "2号说，我是预言家，我验了1号是狼。", "2号在[#1]说过‘我是预言家，我验了1号是狼。’。",
+])
+def test_ordinary_negated_hypothetical_and_quoted_speech_do_not_trigger_claim_cards(text):
+    result = advice(action="speech", view=[ev.speech(1, 1, "玩家", 1, text)])
+    assert not ids(result) & {"V02", "V03"}
+    assert "V01" in ids(result)
+
+
+def test_actual_counterclaims_and_self_accusation_select_relevant_cards_without_certification():
+    view = [ev.speech(1, 1, "甲", 1, "我是预言家，我昨晚验了1号是狼。"),
+            ev.speech(1, 2, "乙", 2, "我是预言家，昨晚我查验了4号是好人。")]
+    result = advice(action="speech", view=view)
+    assert {"V02", "V03"} <= ids(result)
+    assert result.situation.known_wolves == frozenset()
+    assert "[#1] 2号声明查验1号为狼人" in result.text
+    seer = advice(role=Role.SEER, action="speech", view=view)
+    assert "S05" in ids(seer)
+
+
+def test_witch_responds_to_accusation_against_real_knife_good():
+    result = advice(role=Role.WITCH, action="speech", view=[
+        ev.witch_knew(1, 0, 1), ev.speech(1, 2, "假预言家", 1, "我是预言家，我验了2号是狼。"),
+    ])
+    assert "W06" in ids(result)
+    assert 1 in result.situation.known_good and 1 not in result.situation.known_wolves
+
+
+def test_implicit_check_is_recognized_only_with_own_seer_declaration():
+    ordinary = advice(action="speech", view=[ev.speech(1, 1, "甲", 1, "第1夜验1号是狼人。")])
+    assert "V03" not in ids(ordinary)
+    claimed = advice(action="speech", view=[ev.speech(1, 1, "甲", 1, "我是预言家，第1夜验1号是狼人。")])
+    assert "V03" in ids(claimed)
+
+
+def test_changed_identity_does_not_keep_counterclaim_and_self_accusation_active():
+    result = advice(action="speech", view=[
+        ev.speech(1, 1, "甲", 1, "我是预言家，我验了1号是狼。"),
+        ev.speech(1, 2, "乙", 2, "我是预言家。"),
+        ev.speech(1, 1, "甲", 3, "我是平民。"),
+    ])
+    assert not ids(result) & {"V02", "V03"}
+    assert "[#1]" in result.text
+
+
 def test_private_results_only_reach_their_legal_owner_and_true_role():
     events = [ev.seer_check(1, 0, 1, True), ev.seer_check(1, 3, 2, False),
               ev.witch_knew(1, 4, 2), ev.potion_used(1, 4, "毒药", 3)]
@@ -238,7 +302,7 @@ def test_missing_or_invalid_package_data_falls_back_without_breaking_request(mon
         prompt = build_vote_prompt(seat=0, name="测试", role=Role.VILLAGER, persona=PERSONA,
                                    view=[], day=2, alive_seats=[0, 1, 2], my_votes=[])
         assert "策略库暂不可用" in prompt[0]["content"]
-        assert '"vote": 0' in prompt[1]["content"]
+        assert '"vote":' in prompt[1]["content"] and "可以弃票" in prompt[1]["content"]
     finally:
         load_strategy_library.cache_clear()
 

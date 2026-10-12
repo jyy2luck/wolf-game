@@ -52,7 +52,7 @@ class TerminalUI:
                 f"[bold]{me.name}[/bold] · 座位 {me.seat + 1}\n\n"
                 f"角色：[bold red]{me.role.value}[/bold red]（{'狼人阵营' if team_of(me.role) is Team.WOLF else '好人阵营'}）\n"
                 f"{ROLE_DESCRIPTION[me.role]}\n\n"
-                "白天按座位顺序发言，全员投票放逐；夜晚狼人猎杀。\n"
+                "白天按座位首轮发言、简短回应，再统一投票并公开个人票型；夜晚狼人猎杀。\n"
                 "狼人全部出局 → 好人胜；狼人数量不少于好人 → 狼人胜。",
                 title="🐺 你的角色卡",
                 border_style="red" if team_of(me.role) is Team.WOLF else "cyan",
@@ -130,6 +130,9 @@ class TerminalUI:
                 console.print("[red]输入含无法识别的字符，请重新输入当前行；已输入的其他行会保留。[/red]")
                 continue
             return line.strip()
+
+    def show_reply_prompt(self) -> None:
+        console.print("[bold yellow]轮到你简短回应[/bold yellow]：回应关键指控、说明投票倾向，这是投票前最后一次发言。")
 
     def prompt_speech(self) -> str:
         """白天多行自由发言；空行结束，内容不能为空。"""

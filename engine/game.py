@@ -42,6 +42,7 @@ class SpeechContext:
     spoken: tuple[int, ...]
     remaining: tuple[int, ...]
     names: tuple[tuple[int, str], ...]
+    round_number: int = 1
 
 
 # 决策回调类型 -----------------------------------------------------------------
@@ -203,7 +204,7 @@ class Game:
                 )
                 poisoned = poison_target
                 self.events.append(ev.potion_used(self.day, witch.seat, "毒药", poison_target))
-            else:
+            elif not use_save:
                 self.events.append(ev.potion_used(self.day, witch.seat, "未用药", None))
 
         # 4) 天亮结算死讯
@@ -232,24 +233,20 @@ class Game:
         order = [s for s in range(start, 6)] + [s for s in range(0, start)]
         speakers = [s for s in order if s in alive]
 
-        for position, seat in enumerate(speakers):
-            completed = {
-                e.seat for e in self.events
-                if e.public and e.kind is ev.EventKind.SPEECH and e.day == self.day
-            }
-            context = SpeechContext(
-                day=self.day, speaker=seat, order=tuple(speakers),
-                position=position + 1,
-                spoken=tuple(s for s in speakers if s in completed),
-                remaining=tuple(speakers[position + 1:]),
-                names=tuple((p.seat, p.name) for p in self.players),
-            )
-            text = self.hooks.speech(seat, self.view(seat), self.day, context)
-            self.speech_counter += 1
-            self.events.append(
-                ev.speech(self.day, seat, self.players[seat].name,
-                          self.speech_counter, text)
-            )
+        for round_number in (1, 2):
+            for position, seat in enumerate(speakers):
+                context = SpeechContext(
+                    day=self.day, speaker=seat, order=tuple(speakers),
+                    position=position + 1, spoken=tuple(speakers[:position]),
+                    remaining=tuple(speakers[position + 1:]),
+                    names=tuple((p.seat, p.name) for p in self.players), round_number=round_number,
+                )
+                text = self.hooks.speech(seat, self.view(seat), self.day, context)
+                self.speech_counter += 1
+                self.events.append(
+                    ev.speech(self.day, seat, self.players[seat].name,
+                              self.speech_counter, text, round_number=round_number)
+                )
 
         # 统一投票：存活玩家各投一名存活玩家或弃票
         votes: list[tuple[int, int | None]] = []
@@ -263,7 +260,7 @@ class Game:
         for _, target in votes:
             if target is not None:
                 tally[target] = tally.get(target, 0) + 1
-        self.events.append(ev.vote_result(self.day, tally))
+        self.events.append(ev.vote_result(self.day, tally, votes))
 
         # 计票放逐：最高票并列（含全弃票）→ 无人出局
         exiled: int | None = None

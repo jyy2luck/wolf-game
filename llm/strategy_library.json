@@ -418,7 +418,9 @@
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [
+        "seer_contested"
+      ]
     },
     {
       "id": "C03",
@@ -571,7 +573,7 @@
       "actions": [
         "speech"
       ],
-      "priority": 65,
+      "priority": 105,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
@@ -591,10 +593,12 @@
       ],
       "priority": 75,
       "required_rules": [],
-      "required_flags": [],
+      "required_flags": [
+        "seer_contested"
+      ],
       "excluded_flags": [],
       "boost_flags": [
-        "has_public_speech"
+        "seer_contested"
       ]
     },
     {
@@ -609,10 +613,10 @@
         "speech",
         "vote"
       ],
-      "priority": 55,
+      "priority": 160,
       "required_rules": [],
       "required_flags": [
-        "has_public_speech"
+        "self_accused"
       ],
       "excluded_flags": [],
       "boost_flags": []
@@ -787,10 +791,10 @@
         "speech",
         "vote"
       ],
-      "priority": 80,
+      "priority": 130,
       "required_rules": [],
       "required_flags": [
-        "has_public_speech"
+        "seer_counterclaim"
       ],
       "excluded_flags": [],
       "boost_flags": []
@@ -957,11 +961,11 @@
       "actions": [
         "speech"
       ],
-      "priority": 100,
+      "priority": 140,
       "required_rules": [],
       "required_flags": [
         "has_knife",
-        "has_public_speech"
+        "known_good_accused"
       ],
       "excluded_flags": [],
       "boost_flags": []

@@ -115,6 +115,8 @@ def test_night_witch_saves():
 
     assert game.players[target].alive  # 被救
     assert not game.save_available
+    potions = [e.extra["potion"] for e in game.events if e.kind is EventKind.POTION_USED]
+    assert potions == ["解药"]
     assert any(
         e.kind is EventKind.PEACEFUL_NIGHT for e in game.events
     )
@@ -238,7 +240,7 @@ def test_speech_context_follows_official_events_after_seat_five_dies():
     def speak(seat, view, day, context):
         captured.append(context)
         assert context.speaker == seat and context.day == day
-        official = [e.seat for e in view if e.kind is EventKind.SPEECH and e.day == day]
+        official = [e.seat for e in view if e.kind is EventKind.SPEECH and e.day == day and e.extra.get("round_number", 1) == context.round_number]
         assert list(context.spoken) == official
         assert all(e.public or seat in e.viewers for e in view)
         return f"正式发言 {seat + 1}"
@@ -250,14 +252,16 @@ def test_speech_context_follows_official_events_after_seat_five_dies():
     game.events.append(ev.death(1, [4]))
     game._play_day()
     order = (5, 0, 1, 2, 3)
-    assert tuple(c.speaker for c in captured) == order
-    for i, context in enumerate(captured):
+    assert tuple(c.speaker for c in captured) == order * 2
+    for index, context in enumerate(captured):
+        i = index % len(order)
+        assert context.round_number == index // len(order) + 1
         assert context.order == order
         assert context.position == i + 1
         assert context.spoken == order[:i]
         assert context.remaining == order[i + 1:]
         assert context.names == tuple(enumerate(game.names))
-        assert set(vars(context)) == {"day", "speaker", "order", "position", "spoken", "remaining", "names"}
+        assert set(vars(context)) == {"day", "speaker", "order", "position", "spoken", "remaining", "names", "round_number"}
 
 
 @pytest.mark.parametrize("scenario,expected", [
@@ -284,7 +288,7 @@ def test_speech_context_uses_actual_night_and_exile_scheduling(scenario, expecte
     )
     run_night(game)
     game._play_day()
-    assert tuple(c.speaker for c in captured) == expected
+    assert tuple(c.speaker for c in captured) == expected * 2
     assert all(c.order == expected for c in captured)
 
 
@@ -301,10 +305,10 @@ def test_speech_progress_resets_each_day_and_keeps_all_history():
     game.events.append(ev.night_falls(2))
     game.events.append(ev.peaceful_night(2))
     game._play_day()
-    context, view = captured[6]
+    context, view = captured[12]
     assert context.day == 2 and context.spoken == () and context.position == 1
     assert [e for e in view if e.kind is EventKind.SPEECH] == day_one
-    assert [e.speech_index for e in game.events if e.kind is EventKind.SPEECH] == list(range(1, 13))
+    assert [e.speech_index for e in game.events if e.kind is EventKind.SPEECH] == list(range(1, 25))
 
 
 def test_speech_order_starts_after_last_dead():
@@ -324,12 +328,30 @@ def test_speech_order_starts_after_last_dead():
         s = (target + 1 + i) % 6
         if s in alive_after_night:
             expected_order.append(s)
-    assert speeches == expected_order
+    assert speeches == expected_order * 2
     # 发言编号全局递增
     indexes = [
         e.speech_index for e in game.events if e.kind is EventKind.SPEECH
     ]
     assert indexes == list(range(1, len(indexes) + 1))
+
+
+def test_votes_are_published_only_after_everyone_finishes():
+    cast = []
+
+    def vote(seat, alive, view, day):
+        assert not any(e.kind is EventKind.VOTE_RESULT and e.day == day for e in view)
+        assert len([e for e in view if e.kind is EventKind.SPEECH and e.day == day]) == 12
+        target = None if seat == 0 else 1
+        cast.append((seat, target))
+        return target
+
+    game = make_game(vote=vote)
+    game.day = 1
+    game._play_day()
+    result = next(e for e in game.events if e.kind is EventKind.VOTE_RESULT)
+    assert result.extra["votes"] == cast and result.extra["tally"] == {1: 5}
+    assert "1号弃票" in result.text and "6号→2号" in result.text
 
 
 def test_vote_majority_exile():

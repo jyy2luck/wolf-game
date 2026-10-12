@@ -10,6 +10,7 @@ from llm.agents import (
     PERSONA_POOL,
     SAFE_SPEECH,
     MAX_SPEECH_CHARS,
+    MAX_REPLY_CHARS,
     AIPlayer,
     Persona,
     PrivateStrategy,
@@ -39,9 +40,11 @@ class FakeClient:
     def __init__(self, replies: list[str]):
         self.replies = list(replies)
         self.calls: list[list[dict]] = []
+        self.options = []
 
     def chat(self, messages, **kwargs):  # noqa: ANN002, ANN003
         self.calls.append(messages)
+        self.options.append(kwargs)
         if self.replies:
             return self.replies.pop(0)
         return "{不是json"
@@ -221,6 +224,62 @@ def test_private_strategy_reaches_later_speech_votes_and_night_actions(method, a
         assert "上轮公开怀疑对象（不等于真实判断）：3 号" in system
     if method == "day_vote":
         assert player.my_votes == [(2, 1)]  # 真实投票可以不同于公开攻击对象。
+
+
+@pytest.mark.parametrize("method,args,reply,role", [
+    ("day_vote", (2, ALIVE), {"vote": 2}, Role.VILLAGER),
+    ("wolf_den_decision", (2, [0, 2, 3, 4]), {"target": 3}, Role.WEREWOLF),
+    ("seer_decision", (2, [0, 2, 3, 4]), {"target": 3}, Role.SEER),
+    ("witch_decision", (2, 0, True, True, ALIVE), {"save": True, "poison": 0}, Role.WITCH),
+])
+def test_each_action_commits_only_accepted_new_summary(method, args, reply, role):
+    updated = {"assessment": "听完全部发言后修正判断。", "goal": "根据新证据改变行动。", "claim": "说明公开改口。"}
+    player, client = make_player(role=role, seat=1, teammate_seats=[5], replies=[
+        json.dumps({**reply, "private_strategy": updated}, ensure_ascii=False),
+        json.dumps(reply),
+        *[json.dumps({**reply, "private_strategy": {**updated, "goal": "x" * 61}})] * 3,
+    ])
+    getattr(player, method)([], *args)
+    accepted = player.private_strategy
+    assert accepted == PrivateStrategy(**updated)
+    getattr(player, method)([], *args)
+    assert player.private_strategy is accepted
+    getattr(player, method)([], *args)
+    assert player.private_strategy is accepted
+    assert all(options["temperature"] == 0.3 for options in client.options)
+    assert accepted.model_dump_json() in client.calls[1][0]["content"]
+
+
+def test_invalid_target_does_not_commit_candidate_summary():
+    updated = {**STRATEGY, "goal": "不能提交非法目标的摘要。"}
+    player, _ = make_player(replies=[json.dumps({"vote": 6, "private_strategy": updated})] * 3)
+    player.private_strategy = PrivateStrategy(**STRATEGY)
+    assert player.day_vote([], 2, [0, 1, 2]) is None
+    assert player.private_strategy.goal == STRATEGY["goal"]
+
+
+def test_reply_has_shorter_limit_and_all_first_round_history():
+    from engine.game import SpeechContext
+
+    context = SpeechContext(1, 2, tuple(ALIVE), 3, (0, 1), (3, 4, 5), (), round_number=2)
+    player, client = make_player(replies=[speech_json("字" * (MAX_REPLY_CHARS + 1)), speech_json("我根据新证据调整投票方向。")])
+    view = [ev.speech(1, s, str(s), s + 1, f"首轮观点{s}") for s in ALIVE]
+    assert player.day_speech(view, 1, ALIVE, context=context)[0] == "我根据新证据调整投票方向。"
+    assert str(MAX_REPLY_CHARS) in client.calls[1][-1]["content"]
+    prompt = client.calls[0][0]["content"]
+    assert "全部首轮发言" in prompt and "投票前最后一次发言" in prompt
+    assert all(e.extra["content"] in prompt for e in view)
+
+
+def test_wolf_rejects_invalid_team_plan_without_leaking_or_retaining_it():
+    player, _ = make_player(role=Role.WEREWOLF, seat=1, teammate_seats=[5], replies=[
+        json.dumps({"target": 3, "team_plan": "x" * 241}), json.dumps({"target": 3, "team_plan": "2号主导悍跳，6号争取归票。"}),
+        *[json.dumps({"target": 6, "team_plan": "失败候选计划"})] * 3,
+    ])
+    assert player.wolf_den_decision([], 1, [0, 2, 3, 4]) == 2
+    assert player.team_plan == "2号主导悍跳，6号争取归票。"
+    player.wolf_den_decision([], 2, [0, 2, 3, 4])
+    assert player.team_plan is None
 
 
 def test_failed_candidates_missing_and_null_summaries_preserve_accepted_strategy():

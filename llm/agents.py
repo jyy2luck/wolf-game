@@ -28,7 +28,8 @@ from llm.strategies import get_strategy_advice, public_dead_seats
 
 logger = logging.getLogger("llm_murder")
 
-MAX_SPEECH_CHARS = 150  # 完整发言字符上限；超长要求缩写，不裁切正文。
+MAX_SPEECH_CHARS = 240  # 完整首轮发言上限；超长要求缩写，不裁切正文。
+MAX_REPLY_CHARS = 150
 
 
 # ================================================================ 人设卡系统
@@ -87,12 +88,18 @@ class VotePack(BaseModel):
     """投票包：vote 为 1-based 座位号，0=弃票。"""
 
     vote: int = Field(ge=0, le=6)
+    private_strategy: PrivateStrategy | None = None
 
 
 class TargetPack(BaseModel):
     """技能目标包（狼刀/查验共用）：target 为 1-based 座位号。"""
 
     target: int = Field(ge=1, le=6)
+    private_strategy: PrivateStrategy | None = None
+
+
+class WolfPack(TargetPack):
+    team_plan: str | None = Field(default=None, min_length=1, max_length=240)
 
 
 class WitchPack(BaseModel):
@@ -100,6 +107,7 @@ class WitchPack(BaseModel):
 
     save: bool
     poison: int = Field(default=0, ge=0, le=6)
+    private_strategy: PrivateStrategy | None = None
 
 
 # ================================================================ JSON 提取
@@ -187,7 +195,14 @@ GAME_RULES = (
     "编造的查验不能当作真实查验。主观判断可随新信息修正，以真实角色与可见事件为准。\n"
     "只有文字事件，没有表情或肢体观察；不能凭空说他人眼神躲闪、拍桌子等行为。\n"
     "所有历史均属于同一局，天数和昼夜以记录标记为准；今天尚未发言不等于整局从未发言。\n"
-    "公共票型仅公布总得票数，不能推断其他玩家的个人投票目标；自己的投票以自身记录为准。"
+    "白天有首轮发言和一轮短回应，之后统一投票；投票结束后才公布每人的目标和总票数。\n"
+    "个人投票以已公布记录为准；旧记录若仅有总票数，不能推断其他玩家的个人投票目标。"
+)
+
+SUMMARY_REQUIREMENTS = (
+    "private_strategy 仅供自己后续行动：assessment 写已确认事实、主要候选和关键依据（≤120字），"
+    "goal 写本次选择及相较其他行动的理由（≤60字），claim 写拟维持或调整的公开说辞（≤120字）。"
+    "结合最新历史修正上次判断，标明哪些只是猜测或骗局；各字段非空，只写简短结论。\n"
 )
 
 
@@ -210,9 +225,11 @@ def render_memory(view: Iterable[Event]) -> str:
             text = (
                 f"[#{event.speech_index}] {slabel(event.seat)} "
                 f"{event.extra['name']}：{event.extra['content']}"
+                + ("（第2轮回应）" if event.extra.get("round_number", 1) == 2 else "")
             )
         else:
-            source = "系统公开事实" if event.public else "角色私有事实"
+            source = ("狼队共享策略（主观计划，可调整）" if event.kind is EventKind.WOLF_PLAN
+                      else "系统公开事实" if event.public else "角色私有事实")
             text = event.text
         lines.append(f"- 第 {event.day} 天 · {phase} · {source}：{text}")
     return "\n".join(lines) or "（尚无任何记忆）"
@@ -232,6 +249,7 @@ def render_speech_progress(view: list[Event], day: int, context: SpeechContext |
         )
     else:
         progress = (
+            f"当前第 {context.round_number} 轮（{'首轮发言' if context.round_number == 1 else '简短回应'}）。\n"
             f"引擎当日实际顺序：{seats(context.order)}。\n"
             f"当前发言人：{slabel(context.speaker)}，第 {context.position} 位。\n"
             f"当日已完成正式发言：{seats(context.spoken)}。\n"
@@ -260,6 +278,8 @@ def build_speech_prompt(
     retry_warning: str | None = None,
 ) -> list[dict]:
     """四层拼装白天发言 prompt。返回 openai messages。"""
+    reply_round = context is not None and context.round_number == 2
+    char_limit = MAX_REPLY_CHARS if reply_round else MAX_SPEECH_CHARS
     # ---------- 身份层
     identity = (
         f"{GAME_RULES}\n\n"
@@ -296,28 +316,46 @@ def build_speech_prompt(
         f"你上轮公开怀疑对象（不等于真实判断）：{suspect_desc}\n\n"
         f"{render_private_strategy(private_strategy)}"
     )
-    context += "\n\n" + get_strategy_advice(
+    advice = get_strategy_advice(
         role=role, seat=seat, action="speech", view=view, day=day,
         alive_seats=alive_seats, teammate_seats=teammate_seats,
-    ).text
+    )
+    context += "\n\n" + advice.text
+    tasks = {
+        Role.SEER: "比较公布真实结果和继续隐藏的后果；关键轮或有查杀时发布真实结果，争取明确处理目标。",
+        Role.WITCH: "用真实刀口及资源纠正错误指控，比较披露和隐藏的收益，帮助好人集中关键票。",
+        Role.VILLAGER: "比较具体声明及其依据，给出暂定站边和投票方向；无证据时提出可回答的具体问题。",
+        Role.WEREWOLF: "结合狼队共享计划，确定本轮争取谁的票、公开说辞及推动的放逐目标。",
+    }
+    context += f"\n# 本轮发言任务\n{tasks[role]}\n"
+    context += ("你已读到全部首轮发言：回应针对自己的关键指控或新证据，说明站边是否改变并提出归票目标。"
+                "这是投票前最后一次发言，不把行动留到不存在的下一轮。"
+                if reply_round else "贡献一个具体信息、判断或问题；后面还有一次短回应可根据新信息调整。")
 
     # ---------- 输出层：引用示例从本局真实记录生成。
     example = {
-        "private_strategy": {"assessment": "目前公开证据不足。", "goal": "收集信息帮助本阵营。", "claim": "本轮保留公开判断。"},
-        "speech": "目前依据不足，我暂时保留判断。", "suspect": 0, "mood": "平静", "references": [],
+        "private_strategy": {"assessment": f"真实身份是{role.value}；以已确认阵营和公开声明区分事实与猜测。",
+                             "goal": "比较各目标和等待的后果，推动有利于本阵营的行动。", "claim": "提出具体依据、站边或待确认问题。"},
+        "speech": "请预言家交代查验目标及结果，大家说明支持谁和理由，我会据此选择投票方向。",
+        "suspect": 0, "mood": "平静", "references": [],
     }
-    past = next((e for e in view if e.public and e.kind is EventKind.SPEECH and e.seat != seat), None)
+    past = next((e for e in reversed(view) if e.public and e.kind is EventKind.SPEECH and e.seat != seat), None)
     if past is not None and past.extra["content"]:
         quote = past.extra["content"][:12]
-        example["speech"] = f"第 {past.day} 天 {slabel(past.seat)} 在 [#{past.speech_index}] 说过“{quote}”，我想再听听大家的判断。"
+        example["speech"] = f"第 {past.day} 天 {slabel(past.seat)} 在 [#{past.speech_index}] 说过“{quote}”，请说明这个判断的具体依据和投票目标。"
         example["references"] = [{"speech_index": past.speech_index, "seat": past.seat + 1, "day": past.day, "quote": quote}]
+    check = next((e for e in reversed(view) if e.kind is EventKind.SEER_CHECK and seat in e.viewers), None)
+    if role is Role.SEER and check is not None:
+        result = "狼人" if check.extra["is_wolf"] else "好人"
+        example["speech"] = f"我是预言家，第{check.day}夜验{slabel(check.extra['target'])}是{result}。请大家对照真实结果说明站边。"
+        example["references"] = []
+        if check.extra["is_wolf"] and check.extra["target"] in alive_seats:
+            example["suspect"] = check.extra["target"] + 1
     speech_schema = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
         f"{json.dumps(example, ensure_ascii=False)}\n"
-        "private_strategy 仅供自己后续决策：assessment 写当前真实判断（≤120字），goal 写本轮目标（≤60字），"
-        "claim 写拟维持或调整的公开说辞（≤120字）；可在摘要中简短注明采用的策略及切换条件。"
-        "各字段非空，只写简短摘要，不写详细思考过程。\n"
+        f"{SUMMARY_REQUIREMENTS}"
         "suspect 填你对外声称怀疑的存活座位号(1-6)，未定填0；可以不同于真实判断或实际投票。"
         "mood 填简短情绪词，speech 只写公开发言，不透露私有摘要。\n"
         "引用时 references 每项填写 speech_index、seat（1-based）、day、quote（非空原文片段）；"
@@ -326,7 +364,7 @@ def build_speech_prompt(
         "\n## 行为铁律\n"
         "1. 真实认知仅来自你的角色与可见事件；可以编造自身私有经历作为对外说辞，不能将其记为真实经历。\n"
         "2. 根据真实阵营目标选择诚实、隐瞒或欺骗；允许假跳、认狼、改口及策略性动机解释。\n"
-        f"3. 口语化、像真人说话，禁止列表体与书面语，不超过 {MAX_SPEECH_CHARS} 字符（含标点、空格和引用编号）。"
+        f"3. 口语化、像真人说话，禁止列表体与书面语，不超过 {char_limit} 字符（含标点、空格和引用编号）。"
         "超长会要求重新输出，请保留完整语句、关键结论和对应引用。\n"
         "4. 引用别人的观点必须用真实存在的发言编号（如 [#3]），不确定编号就不要引用。\n"
         "5. 不得捏造他人已发生的公开行为，区分记录与解读，明确今日或历史时间范围。"
@@ -387,14 +425,24 @@ def build_vote_prompt(
         f"你此前的投票：{('、'.join(f'第{d}天投给{slabel(t)}' if t is not None else f'第{d}天弃票' for d, t in my_votes) or '还没有投过票')}\n\n"
         f"{render_private_strategy(private_strategy)}"
     )
-    context += "\n\n" + get_strategy_advice(
+    advice = get_strategy_advice(
         role=role, seat=seat, action="vote", view=view, day=day,
         alive_seats=alive_seats, teammate_seats=teammate_seats,
-    ).text
+    )
+    context += "\n\n" + advice.text
+    living = advice.situation.alive
+    targets = (advice.situation.known_good if role is Role.WEREWOLF else advice.situation.known_wolves) & living
+    if not targets:
+        targets = living - advice.situation.known_good - advice.situation.known_wolves
+    target = next(iter(sorted(targets - {seat})), None)
+    example = {"vote": target + 1 if target is not None else 0,
+               "private_strategy": {"assessment": "根据全部发言比较候选及关键证据。", "goal": "选最有利于本阵营的放逐目标。", "claim": "解释公开站边。"}}
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"vote": 0}\n'
+        f"{json.dumps(example, ensure_ascii=False)}\n"
+        f"{SUMMARY_REQUIREMENTS}"
+        "明确比较投各候选、分票和弃票的后果；不能因证据不完全而在等待必输时放弃行动。\n"
         "vote 填你要放逐的存活座位号(1-6)。\n"
         "可以弃票（填0）；依据真实阵营获胜选择目标，可以与公开攻击对象不同，也可以策略性投队友。\n"
         "## 铁律\n"
@@ -439,10 +487,15 @@ def build_wolf_den_prompt(
         role=Role.WEREWOLF, seat=caller, action="wolf_kill", view=view, day=day,
         alive_seats=sorted(set(killable) | set(living_wolves)), teammate_seats=wolf_seats,
     ).text
+    example = {"target": next(iter(killable), 0) + 1,
+               "team_plan": "写明谁主导说辞、队友怎样配合、争取谁及何时改计划。",
+               "private_strategy": {"assessment": "比较技能威胁和白天可利用的分歧。", "goal": "选刀口并协调白天行动。", "claim": "维持公开伪装。"}}
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"target": 1}\n'
+        f"{json.dumps(example, ensure_ascii=False)}\n"
+        f"{SUMMARY_REQUIREMENTS}"
+        "team_plan 是最多240字的狼队共享计划，只使用狼队共同可见信息；明确分工、归票和退出条件。\n"
         "target 必须填可刀对象中的一个座位号(1-6)。\n"
         "## 铁律\n只输出 JSON 本身。"
     )
@@ -480,10 +533,15 @@ def build_seer_prompt(
         role=Role.SEER, seat=seat, action="seer_check", view=view, day=day,
         alive_seats=sorted(set(checkable) | {seat}),
     ).text
+    checked = {e.extra["target"] for e in view if e.kind is EventKind.SEER_CHECK and seat in e.viewers}
+    target = next((s for s in checkable if s not in checked), next(iter(checkable), 0))
+    example = {"target": target + 1,
+               "private_strategy": {"assessment": "比较未知候选与已确认阵营。", "goal": "查验能改变明天归票的未知对象。", "claim": "准备发布真实结果。"}}
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"target": 1}\n'
+        f"{json.dumps(example, ensure_ascii=False)}\n"
+        f"{SUMMARY_REQUIREMENTS}"
         "target 必须填可查验对象中的一个座位号(1-6)。\n"
         "## 铁律\n只输出 JSON 本身。"
     )
@@ -526,10 +584,13 @@ def build_witch_prompt(
         alive_seats=alive_seats, kill_target=kill_target,
         can_save=can_save, can_poison=can_poison,
     ).text
+    example = {"save": can_save, "poison": 0,
+               "private_strategy": {"assessment": "刀口在本局是好人；比较药量和人数危险。", "goal": "比较救人、毒人和不用药的结算后果。", "claim": "必要时用真实刀口信息纠偏。"}}
     output = (
         "# 输出要求\n"
         "只输出一个 JSON 对象（不要输出任何其他文字）：\n"
-        '{"save": false, "poison": 0}\n'
+        f"{json.dumps(example, ensure_ascii=False)}\n"
+        f"{SUMMARY_REQUIREMENTS}"
         "save 为 true 表示用解药救刀口，false 表示不用；poison 填毒杀的存活座位号(1-6)，不用毒填0。\n"
         "## 铁律\n"
         f"1. save 与 poison 不得同时使用（要么救，要么毒，要么都不用）。\n"
@@ -570,6 +631,7 @@ class AIPlayer:
         self.my_votes: list[tuple[int, int | None]] = []
         self.last_suspect: int | None = None  # 上轮公开立场，可以与真实判断不同。
         self.private_strategy: PrivateStrategy | None = None
+        self.team_plan: str | None = None
 
     # ------------------------------------------------------------ 校验工具
 
@@ -612,15 +674,16 @@ class AIPlayer:
         )
 
         records = speech_index(view)
+        char_limit = MAX_REPLY_CHARS if context is not None and context.round_number == 2 else MAX_SPEECH_CHARS
         def validate(pack: SpeechPack) -> ValidationIssue | None:
             # 所有校验与最终公开文本使用同一规范化结果。
             pack.speech = pack.speech.strip()
             if not pack.speech:
                 return ValidationIssue("发言不能为空", "format")
-            if len(pack.speech) > MAX_SPEECH_CHARS:
+            if len(pack.speech) > char_limit:
                 return ValidationIssue(
-                    f"发言超过 {MAX_SPEECH_CHARS} 字符（当前 {len(pack.speech)} 字符）。"
-                    f"请缩写为不超过 {MAX_SPEECH_CHARS} 字符的完整发言，保留关键结论，"
+                    f"发言超过 {char_limit} 字符（当前 {len(pack.speech)} 字符）。"
+                    f"请缩写为不超过 {char_limit} 字符的完整发言，保留关键结论，"
                     "同步调整正文引用和 references，不要截断句子。",
                     "length",
                 )
@@ -689,7 +752,7 @@ class AIPlayer:
                 teammate_seats=self.teammate_seats,
             ),
             VotePack,
-            validate=validate,
+            validate=validate, temperature=0.3,
             mock_reply=vote_mock,
         )
         target: int | None = (
@@ -697,6 +760,8 @@ class AIPlayer:
         )
         if pack is None:
             logger.warning("AI「%s」投票降级为弃票：%s", self.name, err)
+        elif pack.private_strategy is not None:
+            self.private_strategy = pack.private_strategy
         self.my_votes.append((day, target))
         return target
 
@@ -706,6 +771,7 @@ class AIPlayer:
         self, view: list[Event], day: int, killable: list[int]
     ) -> int:
         """狼窝会话：两狼共享一次调用统一刀口。返回 0-based 目标。"""
+        self.team_plan = None
         def validate(pack: TargetPack) -> str | None:
             return self._alive_target_error(pack.target, killable, allow_zero=False)
 
@@ -719,13 +785,16 @@ class AIPlayer:
                 private_strategy=self.private_strategy,
                 seat=self.seat,
             ),
-            TargetPack,
-            validate=validate,
+            WolfPack,
+            validate=validate, temperature=0.3,
             mock_reply=lambda: json.dumps({"target": killable[0] + 1}),
         )
         if pack is None:
             logger.warning("狼窝决策降级为刀首名好人：%s", err)
             return killable[0]
+        if pack.private_strategy is not None:
+            self.private_strategy = pack.private_strategy
+        self.team_plan = pack.team_plan
         return pack.target - 1
 
     def seer_decision(
@@ -743,12 +812,14 @@ class AIPlayer:
                 private_strategy=self.private_strategy,
             ),
             TargetPack,
-            validate=validate,
+            validate=validate, temperature=0.3,
             mock_reply=lambda: json.dumps({"target": checkable[0] + 1}),
         )
         if pack is None:
             logger.warning("预言家决策降级为查验首位：%s", err)
             return checkable[0]
+        if pack.private_strategy is not None:
+            self.private_strategy = pack.private_strategy
         return pack.target - 1
 
     def witch_decision(
@@ -785,12 +856,14 @@ class AIPlayer:
                 private_strategy=self.private_strategy,
             ),
             WitchPack,
-            validate=validate,
+            validate=validate, temperature=0.3,
             mock_reply=lambda: json.dumps({"save": False, "poison": 0}),
         )
         if pack is None:
             logger.warning("女巫决策降级为不用药：%s", err)
             return False, None
+        if pack.private_strategy is not None:
+            self.private_strategy = pack.private_strategy
         poison = pack.poison - 1 if pack.poison > 0 else None
         return pack.save, poison
 
@@ -808,6 +881,7 @@ def call_structured(
     on_delta: Callable[[str], None] | None = None,
     validate: Callable[[BaseModel], str | ValidationIssue | None] | None = None,
     mock_reply: Callable[[], str] | None = None,
+    temperature: float = 0.8,
 ) -> tuple[BaseModel | None, str | None]:
     """最多重试 2 次：格式/业务错误反馈给模型，截断则在上限内扩大预算。
 
@@ -819,11 +893,14 @@ def call_structured(
     config = getattr(client, "config", None)
     budget = getattr(config, "max_tokens", DEFAULT_MAX_TOKENS)
     budget_limit = getattr(config, "max_tokens_limit", DEFAULT_MAX_TOKENS_LIMIT)
+    usage = getattr(client, "usage", None)
     for attempt in range(max_retries + 1):
+        if attempt and usage is not None:
+            usage.structured_retries += 1
         try:
             text = client.chat(
                 convo, stream=stream, on_delta=on_delta,
-                max_tokens=budget, mock_reply=mock_reply,
+                max_tokens=budget, mock_reply=mock_reply, temperature=temperature,
             )
         except OutputTruncatedError as exc:
             last_err = str(exc)
@@ -837,6 +914,8 @@ def call_structured(
             continue
         except RuntimeError as exc:
             # 客户端的网络重试已耗尽，该行动交给调用方安全降级。
+            if usage is not None:
+                usage.fallback_actions += 1
             return None, str(exc)
         pack, err = parse_pack(text, model_cls)
         if pack is not None and validate is not None:
@@ -860,4 +939,6 @@ def call_structured(
                 ),
             },
         ]
+    if usage is not None:
+        usage.fallback_actions += 1
     return None, last_err

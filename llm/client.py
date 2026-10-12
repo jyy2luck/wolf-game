@@ -27,6 +27,8 @@ class UsageStats:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     reasoning_tokens: int = 0
+    structured_retries: int = 0
+    fallback_actions: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -135,7 +137,7 @@ class LLMClient:
             options["response_format"] = {"type": "json_object"}
         thinking = self.config.thinking
         if thinking is None and is_deepseek:
-            thinking = "disabled"
+            thinking = "enabled"
         if thinking is not None:
             options["extra_body"] = {"thinking": {"type": thinking}}
         last_error: Exception | None = None

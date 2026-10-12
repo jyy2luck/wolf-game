@@ -10,12 +10,16 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
+import json
 import logging
+from pathlib import Path
 import random
 import sys
 
 from config import LLMConfig, ensure_config
 from engine.game import DecisionHooks, Game, SpeechContext
+from engine import events as ev
 from engine.roles import Role
 from llm.agents import AIPlayer, assign_personas
 from llm.client import LLMClient
@@ -33,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reconfig", action="store_true", help="重新配置 LLM 连接")
     parser.add_argument("--mock", action="store_true", help="离线演示模式，不调用真实 LLM")
     parser.add_argument("--seed", type=int, default=None, help="固定随机种子")
+    parser.add_argument("--record", type=Path, help="终局保存公开对局记录到新的 JSON 文件")
     return parser.parse_args()
 
 
@@ -71,9 +76,13 @@ class Controller:
                 return choice
             # 委托 AI 队友（此时队友必然存活）
         ai_wolf = next(s for s in wolf_seats if s != self.human)
-        return self.agents[ai_wolf].wolf_den_decision(
+        agent = self.agents[ai_wolf]
+        target = agent.wolf_den_decision(
             self.game.view(ai_wolf), day, killable
         )
+        if agent.team_plan is not None:
+            self.game.events.append(ev.wolf_plan(day, wolf_seats, agent.team_plan))
+        return target
 
     def on_seer_check(
         self, seer_seat: int, checkable: list[int], view, day: int
@@ -102,6 +111,8 @@ class Controller:
         self.ui.render_new()
         self.ui.show_alive_update()
         if seat == self.human:
+            if context.round_number == 2:
+                self.ui.show_reply_prompt()
             return self.ui.prompt_speech()
         agent = self.agents[seat]
         with self.ui.wait_ai_speech(agent.name, seat):
@@ -152,6 +163,21 @@ def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, 
     return game, controller, ui, client
 
 
+def save_record(path: Path, game: Game, client: LLMClient, seed: int | None) -> None:
+    payload = {
+        "version": 1, "seed": seed, "model": client.config.model,
+        "names": game.names, "winner": game.winner,
+        "revealed_roles": [p.role.value for p in game.players] if game.winner is not None else None,
+        "usage": asdict(client.usage),
+        "events": [{"kind": e.kind.value, "day": e.day, "phase": e.phase.value,
+                    "seat": e.seat, "speech_index": e.speech_index, "text": e.text, "extra": e.extra}
+                   for e in game.events if e.public],
+    }
+    content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    with path.open("x", encoding="utf-8") as output:
+        output.write(content)
+
+
 def main() -> None:
     args = parse_args()
     logging.basicConfig(
@@ -169,8 +195,15 @@ def main() -> None:
         print(
             f"\n📊 本次对局 LLM 调用 {usage.calls} 次，"
             f"tokens {usage.total_tokens}（入 {usage.prompt_tokens} / 出 {usage.completion_tokens}，"
-            f"其中思考 {usage.reasoning_tokens}）"
+            f"其中思考 {usage.reasoning_tokens}）；"
+            f"结构化重试 {usage.structured_retries} 次，降级 {usage.fallback_actions} 次"
         )
+        if args.record is not None:
+            try:
+                save_record(args.record, game, client, args.seed)
+                print(f"公开对局记录已保存：{args.record}")
+            except OSError as exc:
+                print(f"对局记录保存失败：{exc}", file=sys.stderr)
     except KeyboardInterrupt:
         print("\n已退出游戏。")
         sys.exit(130)

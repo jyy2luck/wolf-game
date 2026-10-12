@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources import files
+from itertools import combinations
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -44,7 +46,7 @@ CURRENT_RULES = RuleProfile(
         "stable_two_team_parity", "stable_alignment_checks", "wolves_kill_only_good",
         "single_night_death_good", "no_other_night_protection", "no_death_counteraction", "witch_save",
         "witch_self_save", "witch_one_of_each", "witch_acts_before_dawn",
-        "single_daily_speech", "aggregate_votes",
+        "repeat_daily_speech", "individual_votes",
     }),
 )
 
@@ -141,6 +143,47 @@ class Situation:
     wolf_counts: tuple[int, ...]
     flags: frozenset[str]
     settled: bool
+    claims: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PublicClaim:
+    event: Event
+    role: str
+    target: int | None = None
+    is_wolf: bool | None = None
+
+
+# shortcut: 仅提取明确第一人称身份及查验句式，歧义仍交由模型读原文，新增句式时补成对用例。
+_CLAIM_TIME = r"(?:昨晚|昨夜|昨天|第\s*\d+\s*[夜天晚])"
+_CLAIM_START = r"(?:^|[，,。！？!?；;\n])\s*(?:" + _CLAIM_TIME + r"\s*)?"
+_ROLE_CLAIM = re.compile(_CLAIM_START + r"(?:我是|我跳|本人是)(预言家|女巫|平民|狼人)(?=$|[\s，,。！？!?；;])")
+_CHECK_CLAIM = re.compile(
+    _CLAIM_START + r"(?P<speaker>我)?(?:" + _CLAIM_TIME + r"\s*)?(?:查验|验)(?:了|过)?\s*(?P<target>[1-6])\s*号"
+    r"\s*[，,：:]?\s*(?:是|为|结果是|结果为)?\s*(?P<result>狼人|好人|金水|查杀|狼)(?=$|[\s，,。！？!?；;])"
+)
+_QUOTED_CLAIM = re.compile(r'“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"')
+_CONDITIONAL_OR_REPORT = re.compile(r"如果|假如|假设|要是|倘若|(?:[1-6]\s*号|他|她|有人)(?:说|声称|表示)|转述|复述")
+
+
+def public_claims(view: list[Event]) -> tuple[PublicClaim, ...]:
+    claims = []
+    declared_roles = {}
+    for event in view:
+        if not event.public or event.kind is not EventKind.SPEECH:
+            continue
+        text = _QUOTED_CLAIM.sub("", event.extra["content"])
+        for sentence in re.split(r"[。！？!?；;\n]", text):
+            if _CONDITIONAL_OR_REPORT.search(sentence):
+                continue
+            for match in _ROLE_CLAIM.finditer(sentence):
+                claims.append(PublicClaim(event, match[1]))
+                declared_roles[event.seat] = match[1]
+            for match in _CHECK_CLAIM.finditer(sentence):
+                if match["speaker"] or declared_roles.get(event.seat) == "预言家":
+                    claims.append(PublicClaim(event, "预言家", int(match["target"]) - 1,
+                                              match["result"] in {"狼", "狼人", "查杀"}))
+    return tuple(claims)
 
 
 def build_situation(
@@ -239,6 +282,16 @@ def build_situation(
         if settled:
             upper = min(upper, (len(alive) - 1) // 2)
         counts = tuple(range(lower, upper + 1))
+        if counts and rules.initial_wolves is not None:
+            unknown = all_seats - good - wolves
+            remaining = rules.initial_wolves - len(wolves)
+            candidates = [wolves | set(group) for group in combinations(sorted(unknown), remaining)
+                          if len((wolves | set(group)) & alive) in counts]
+            if candidates:
+                wolves.update(set.intersection(*candidates))
+                good.update(all_seats - set.union(*candidates))
+            else:
+                counts = ()
         if counts:
             # 只描述普通成功刀一名好人的条件分支；不把其他资源未知写成已无保护。
             dangers = [2 * count >= len(alive) - 1 for count in counts]
@@ -250,8 +303,29 @@ def build_situation(
         disputed = good & wolves
         good = (good - disputed) & all_seats
         wolves = (wolves - disputed) & all_seats
+    if len(wolves & alive) >= 2:
+        flags.add("multiple_wolves")
+    claims = public_claims(own_view)
+    latest_roles = {claim.event.seat: claim.role for claim in claims}
+    seer_claimants = {author for author, claimed_role in latest_roles.items()
+                     if claimed_role == "预言家" and author in alive}
+    if len(seer_claimants) >= 2:
+        flags.add("seer_contested")
+    if role_name == "预言家" and seer_claimants - {seat}:
+        flags.add("seer_counterclaim")
+    latest_checks = {(c.event.seat, c.target): c for c in claims if c.target is not None}
+    active_checks = [c for c in latest_checks.values() if c.event.seat in seer_claimants]
+    if any(c.is_wolf and c.target == seat and c.event.seat != seat for c in active_checks):
+        flags.add("self_accused")
+    if any(c.is_wolf and c.target in good and c.event.seat != seat for c in active_checks):
+        flags.add("known_good_accused")
+    descriptions = tuple(
+        f"第{c.event.day}天 [#{c.event.speech_index}] {c.event.seat + 1}号声明"
+        + (f"自己是{c.role}" if c.target is None else f"查验{c.target + 1}号为{'狼人' if c.is_wolf else '好人'}")
+        for c in claims
+    )
     return Situation(role_name, action, alive, frozenset(good), frozenset(wolves),
-                     counts, frozenset(flags), settled)
+                     counts, frozenset(flags), settled, descriptions)
 
 
 def select_strategy_cards(
@@ -297,6 +371,13 @@ def _situation_text(situation: Situation) -> str:
         living = values & situation.alive
         if living:
             lines.append(f"你根据自身身份或合法可见硬事实确认的存活{label}：{_seat_labels(living)}。")
+    unknown = situation.alive - situation.known_good - situation.known_wolves
+    if unknown:
+        lines.append(f"阵营仍未知：{_seat_labels(unknown)}；声明仅作待验证线索。")
+    if "critical_certain" in situation.flags:
+        lines.append("错放逐一名好人会立即达到狼人人数胜利线；平票后若狼刀成功且无技能扭转也会输。")
+    if situation.claims:
+        lines.append("近期公开声明对照（不是系统认证，历史说法可能已撤回；核对完整原文）：\n" + "\n".join(situation.claims[-12:]))
     return "\n".join(lines)
 
 

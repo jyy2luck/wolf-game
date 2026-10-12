@@ -34,6 +34,10 @@ _BEHAVIOR = re.compile(
 _OBSERVATION = re.compile(r"眼神(?:明显|有些|很)?躲闪|拍(?:了)?桌(?:子)?|表情(?:很|明显)?慌张")
 _DEATH = re.compile(r"死了|死亡|被(?:放逐|投出|票出)(?:了|出局)?|出局了")
 _VOTE_COUNT = re.compile(r"(?:得(?:了)?|获(?:得)?(?:了)?|有)?\s*(\d+)\s*票")
+_PERSONAL_VOTE = re.compile(
+    r"^\s*(?:(?:今天|今日|昨天|昨日|前天|第\s*\d+\s*天)\s*)?(?:把票)?"
+    r"(?:投(?:票)?(?:给|向)?(?:了)?\s*([1-6])\s*号|弃(?:了)?票)"
+)
 _PREDICTED = re.compile(r"将|会|可能|大概|预计|估计|应该")
 _SILENCE = re.compile(r"(?:故意|刻意)(?:不说话|不发言|沉默)|(?:躲|逃避)(?:着)?发言")
 _FUTURE = re.compile(r"如果|假如|假设|要是|倘若|等(?:待|到|听)?|发言后|说话后")
@@ -161,6 +165,24 @@ def validate_speech_facts(
 
         for i, (start, end, seat) in enumerate(mentions):
             prefix = clause[:start]
+            personal_vote = _PERSONAL_VOTE.match(clause[end:]) if view is not None else None
+            if personal_vote is not None:
+                statement = prefix + clause[end:end + personal_vote.end()]
+                if _FUTURE.search(statement) or _PREDICTED.search(statement) or _DENIED_PREFIX.search(prefix):
+                    continue
+                requested_day = _day_at(statement, day)
+                results = [e for e in view if e.public and e.kind is EventKind.VOTE_RESULT
+                           and (requested_day is None or e.day == requested_day)]
+                if not results or "votes" not in results[-1].extra:
+                    return "所述时间尚无公开个人票型，不能编造个人投票目标"
+                result = results[-1]
+                votes = dict(result.extra["votes"])
+                target = int(personal_vote[1]) - 1 if personal_vote[1] else None
+                if seat not in votes or votes[seat] != target:
+                    actual = (f"投给{votes[seat] + 1}号" if seat in votes and votes[seat] is not None
+                              else "弃票" if seat in votes else "没有个人投票记录")
+                    return f"第{result.day}天公开个人票型中{seat + 1}号{actual}，与正文不符"
+                continue
             tail = clause[end:mentions[i + 1][0] if i + 1 < len(mentions) else len(clause)]
             observation = _OBSERVATION.search(tail)
             death = _DEATH.search(tail) if view is not None else None
