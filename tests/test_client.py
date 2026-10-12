@@ -69,7 +69,7 @@ def test_defaults_produce_complete_reply_and_count_usage(make_client, stream):
     client, requests = make_client(response('{"vote": 2}', stream=stream))
     deltas = []
     assert client.chat([{"role": "user", "content": "Return JSON"}], stream=stream, on_delta=deltas.append) == '{"vote": 2}'
-    assert requests[0]["max_tokens"] == 4096
+    assert requests[0]["max_tokens"] == 8192
     assert requests[0]["response_format"] == {"type": "json_object"}
     assert requests[0]["thinking"] == {"type": "enabled"}
     assert client.usage.calls == 1 and client.usage.total_tokens == 30
@@ -85,6 +85,7 @@ def test_length_is_not_retried_as_network_failure(make_client, stream, content):
     assert caught.value.finish_reason == "length"
     assert caught.value.reasoning_tokens == 483
     assert caught.value.content_chars == len(content)
+    assert requests[0]["max_tokens"] == 500
     assert len(requests) == 1
     assert client.usage.calls == 1 and client.usage.completion_tokens == 500
     assert client.usage.reasoning_tokens == 483
@@ -92,28 +93,37 @@ def test_length_is_not_retried_as_network_failure(make_client, stream, content):
 
 
 @pytest.mark.parametrize("stream", [False, True])
-def test_structured_retry_increases_budget_without_adding_truncated_text(make_client, stream, caplog):
-    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash", max_tokens=500, thinking="enabled")
+def test_structured_retry_reuses_budget_across_actions_without_adding_truncated_text(make_client, stream, caplog):
+    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash", thinking="enabled")
     client, requests = make_client(
-        response("", stream=stream, finish="length", tokens=500, reasoning=500),
-        response('{"vote": 3}', stream=stream, tokens=200, reasoning=194), config=cfg,
+        response("", stream=stream, finish="length", tokens=8192, reasoning=8192),
+        response('{"vote": 3}', stream=stream, tokens=200, reasoning=194),
+        # 下一行动不重新从基础预算尝试。
+        response('{"vote": 2}', stream=not stream), config=cfg,
     )
     messages = [{"role": "user", "content": 'Return JSON {"vote": 0}'}]
     pack, err = call_structured(client, messages, VotePack, stream=stream)
     assert err is None and pack.vote == 3
-    assert [r["max_tokens"] for r in requests] == [500, 1000]
+    assert [r["max_tokens"] for r in requests] == [8192, 16384]
     assert all(r["messages"] == messages for r in requests)
     assert all(r["thinking"] == {"type": "enabled"} for r in requests)
-    assert client.usage.calls == 2 and client.usage.completion_tokens == 700
-    assert client.usage.reasoning_tokens == 694
-    assert "finish_reason=length" in caplog.text and "思考 tokens=500" in caplog.text
+    assert client.usage.calls == 2 and client.usage.completion_tokens == 8392
+    assert client.usage.reasoning_tokens == 8386
+    assert "finish_reason=length" in caplog.text and "思考 tokens=8192" in caplog.text
     assert "结构化输出解析失败" not in caplog.text
     assert "test-key" not in caplog.text and "private reasoning" not in caplog.text
+    next_pack, err = call_structured(client, [{"role": "user", "content": "Next action JSON"}], VotePack, stream=not stream)
+    assert err is None and next_pack.vote == 2
+    assert [r["max_tokens"] for r in requests] == [8192, 16384, 16384]
+    assert client.usage.structured_retries == 1 and client.usage.fallback_actions == 0
+    assert cfg.max_tokens == 4096 and cfg.max_tokens_limit == 16384
+    new_client, _ = make_client(response('{"vote": 2}'), config=cfg)
+    assert new_client.output_budget == 8192
 
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_maximum_structured_attempts_degrade_speech_or_vote(make_client, stream):
-    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash", max_tokens=500)
+    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash", max_tokens=500, thinking="disabled")
     client, requests = make_client(
         *(response("", stream=stream, finish="length", tokens=n, reasoning=n) for n in (500, 1000, 2000)), config=cfg,
     )
@@ -128,7 +138,7 @@ def test_maximum_structured_attempts_degrade_speech_or_vote(make_client, stream)
 
 
 def test_budget_ceiling_stops_useless_retries(make_client):
-    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash", max_tokens=500, max_tokens_limit=750)
+    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash", max_tokens=500, max_tokens_limit=750, thinking="disabled")
     client, requests = make_client(response("", finish="length", tokens=500), response("", finish="length", tokens=750), config=cfg)
     pack, err = call_structured(client, [], VotePack)
     assert pack is None and "截断" in err
@@ -139,7 +149,7 @@ def test_format_retry_keeps_budget_and_includes_error(make_client):
     client, requests = make_client(response("bad JSON"), response('{"vote": 4}'))
     pack, err = call_structured(client, [], VotePack)
     assert pack.vote == 4 and err is None
-    assert [r["max_tokens"] for r in requests] == [4096, 4096]
+    assert [r["max_tokens"] for r in requests] == [8192, 8192]
     assert requests[1]["messages"][-2] == {"role": "assistant", "content": "bad JSON"}
     assert "无法使用" in requests[1]["messages"][-1]["content"]
     assert client.usage.structured_retries == 1 and client.usage.fallback_actions == 0
@@ -170,6 +180,19 @@ def test_provider_options_are_compatible_and_overridable(make_client, base_url, 
         assert requests[0]["thinking"] == {"type": expected_thinking}
     else:
         assert "thinking" not in requests[0]
+    assert requests[0]["max_tokens"] == (8192 if expected_thinking == "enabled" else 4096)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("base,ceiling,expected", [(4096, 6000, 6000), (10000, 12000, 10000)])
+def test_thinking_budget_respects_configured_base_and_ceiling(make_client, stream, base, ceiling, expected):
+    cfg = LLMConfig("https://api.deepseek.com", "test-key", "deepseek-flash",
+                    max_tokens=base, max_tokens_limit=ceiling)
+    client, requests = make_client(response("", stream=stream, finish="length", tokens=expected), config=cfg)
+    pack, err = call_structured(client, [], VotePack, stream=stream, max_retries=0)
+    assert pack is None and "截断" in err
+    assert requests[0]["max_tokens"] == expected
+    assert client.output_budget <= ceiling
 
 
 def test_network_failure_degrades_after_client_retries(make_client, monkeypatch):
@@ -200,7 +223,7 @@ def test_streamed_candidates_stay_private_until_fact_checks_pass(make_client):
 
 def test_streamed_truncation_then_fact_errors_cannot_open_another_retry_loop(make_client):
     invalid = json.dumps({"speech": "2号刚才长篇大论。", "suspect": 2})
-    cfg = LLMConfig("https://api.deepseek.com", "key", "model", max_tokens=500, max_tokens_limit=750)
+    cfg = LLMConfig("https://api.deepseek.com", "key", "model", max_tokens=500, max_tokens_limit=750, thinking="disabled")
     client, requests = make_client(
         response("half-json", stream=True, finish="length"),
         response(invalid, stream=True),

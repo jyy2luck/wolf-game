@@ -76,6 +76,11 @@ class LLMClient:
         self.request_timeout = request_timeout
         self.max_retries = max_retries
         self.usage = UsageStats()
+        self.output_budget = config.max_tokens
+        if config.thinking == "enabled" or (
+            config.thinking is None and urlparse(config.base_url).hostname == "api.deepseek.com"
+        ):
+            self.output_budget = min(config.max_tokens_limit, max(config.max_tokens, 8192))
         self._client: OpenAI | None = None
         if not mock:
             self._client = OpenAI(
@@ -111,7 +116,7 @@ class LLMClient:
         stream=True 时把增量文本回调给 on_delta，并统计 usage。
         mock 模式回复优先级：mock_fn（构造时注入）> mock_reply（本次调用注入，
         由调用方按请求 schema 生成合法 JSON）> DEFAULT_MOCK_REPLY。
-        max_tokens 未指定时使用配置预算；length 完成原因抛出 OutputTruncatedError。
+        max_tokens 未指定时使用本局运行时预算；length 时记住扩容预算并抛出 OutputTruncatedError。
         """
         if self.mock:
             self.usage.calls += 1
@@ -122,7 +127,7 @@ class LLMClient:
             return DEFAULT_MOCK_REPLY
 
         assert self._client is not None
-        budget = self.config.max_tokens if max_tokens is None else max_tokens
+        budget = self.output_budget if max_tokens is None else max_tokens
         options: dict = {
             "model": self.config.model,
             "messages": messages,
@@ -176,7 +181,11 @@ class LLMClient:
                     raise OutputTruncatedError(budget, content, resp.usage)
                 return content
 
-            except (KeyboardInterrupt, OutputTruncatedError):
+            except OutputTruncatedError:
+                # 所有玩家共享本局客户端，下一行动沿用扩容预算，避免重复空跑思考。
+                self.output_budget = min(self.config.max_tokens_limit, max(self.output_budget, budget * 2))
+                raise
+            except KeyboardInterrupt:
                 raise
             except Exception as exc:  # 网络抖动 / 限流：退避后重试
                 last_error = exc

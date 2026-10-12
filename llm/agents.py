@@ -891,7 +891,7 @@ def call_structured(
     convo = list(messages)
     last_err = "未知错误"
     config = getattr(client, "config", None)
-    budget = getattr(config, "max_tokens", DEFAULT_MAX_TOKENS)
+    budget = getattr(client, "output_budget", getattr(config, "max_tokens", DEFAULT_MAX_TOKENS))
     budget_limit = getattr(config, "max_tokens_limit", DEFAULT_MAX_TOKENS_LIMIT)
     usage = getattr(client, "usage", None)
     for attempt in range(max_retries + 1):
