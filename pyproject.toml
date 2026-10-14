@@ -1,13 +1,20 @@
 [project]
 name = "llm-murder"
 version = "0.1.0"
-description = "终端单机狼人杀：1 名人类玩家 + 5 个 LLM 玩家的 6 人局"
+description = "终端单机狼人杀：六人、九人与十二人标准板子及 AI 玩家"
 requires-python = ">=3.11"
 dependencies = [
     "openai>=1.30",
     "rich>=13.0",
     "pydantic>=2.7",
 ]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+llm-murder = "main:main"
 
 [dependency-groups]
 dev = [
@@ -20,6 +27,7 @@ addopts = "-q"
 
 [tool.setuptools]
 packages = ["engine", "llm", "ui"]
+py-modules = ["main", "config"]
 
 [tool.setuptools.package-data]
 llm = ["strategy_library.json"]

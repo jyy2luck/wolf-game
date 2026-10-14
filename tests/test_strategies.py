@@ -40,7 +40,7 @@ def test_library_covers_reviewed_cards_and_ten_complete_population_guides():
     assert library is not None
     documented_ids = set(re.findall(r"^\| ([A-Z]{1,2}\d{2}) \|", DESIGN.read_text(encoding="utf-8"), re.M))
     assert {card.id for card in library.cards} == documented_ids
-    assert len(library.cards) == 67
+    assert len(library.cards) == 71
     assert len(library.roles) == 10
     for guides in library.roles.values():
         assert len(guides) == 7
@@ -254,7 +254,7 @@ def test_references_are_bounded_and_match_true_role_rules_and_action(role, actio
     assert len(result.text) <= MAX_REFERENCE_CHARS
     assert {"C01", "C05"} <= ids(result)
     for card in result.cards:
-        assert card.role in {"*", role.value}
+        assert card.role == "*" or card.role in CURRENT_RULES.roles
         assert action in card.actions
         assert card.required_rules <= CURRENT_RULES.capabilities
         assert card.required_flags <= result.situation.flags

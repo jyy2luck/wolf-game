@@ -87,8 +87,8 @@ def test_action_prompt_examples_are_valid_json(builder, options, schema):
                        view=[], day=1, **options)
     pack, err = parse_pack(messages[-1]["content"], schema)
     assert pack is not None and err is None
-    assert "2 名狼人、1 名预言家、1 名女巫、2 名平民" in messages[0]["content"]
-    assert "没有守卫" in messages[0]["content"]
+    assert "狼人2名、预言家1名、女巫1名、平民2名" in messages[0]["content"]
+    assert "six-classic" in messages[0]["content"]
 
 
 def speech_json(speech: str, suspect: int = 0, mood: str = "平静", references=None, **extra) -> str:
@@ -123,7 +123,7 @@ def test_extract_json_block_variants():
 def test_parse_pack_schema_validation():
     pack, err = parse_pack('{"vote": 3}', VotePack)
     assert pack.vote == 3 and err is None
-    pack, err = parse_pack('{"vote": 99}', VotePack)
+    pack, err = parse_pack('{"vote": -1}', VotePack)
     assert pack is None and "校验" in err
     pack, err = parse_pack('{"save": true, "poison": 0}', WitchPack)
     assert pack is not None and err is None

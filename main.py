@@ -18,7 +18,8 @@ import random
 import sys
 
 from config import LLMConfig, ensure_config
-from engine.game import DecisionHooks, Game, SpeechContext
+from engine.game import ActionWindow, DecisionHooks, Game, SpeechContext
+from engine.boards import BOARDS, get_board
 from engine import events as ev
 from engine.roles import Role
 from llm.agents import AIPlayer, assign_personas
@@ -33,7 +34,8 @@ def _unwired(*_args, **_kwargs):  # noqa: ANN002, ANN003
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="🐺 LLM 狼人杀（6 人局单机）")
+    parser = argparse.ArgumentParser(description="🐺 LLM 狼人杀（单机标准板子）")
+    parser.add_argument("--board", choices=tuple(BOARDS), default="six-classic", help="选择具名板子")
     parser.add_argument("--reconfig", action="store_true", help="重新配置 LLM 连接")
     parser.add_argument("--mock", action="store_true", help="离线演示模式，不调用真实 LLM")
     parser.add_argument("--seed", type=int, default=None, help="固定随机种子")
@@ -61,6 +63,7 @@ class Controller:
             witch_act=self.on_witch_act,
             speech=self.on_speech,
             vote=self.on_vote,
+            action=self.on_action,
         )
 
     # ------------------------------------------------------------ 夜晚技能
@@ -73,7 +76,7 @@ class Controller:
             mates = [s for s in wolf_seats if s != self.human]
             choice = self.ui.prompt_wolf_kill(killable, mates)
             if choice is not None:
-                return choice
+                return None if choice == "empty" else choice
             # 委托 AI 队友（此时队友必然存活）
         ai_wolf = next(s for s in wolf_seats if s != self.human)
         agent = self.agents[ai_wolf]
@@ -83,6 +86,12 @@ class Controller:
         if agent.team_plan is not None:
             self.game.events.append(ev.wolf_plan(day, wolf_seats, agent.team_plan))
         return target
+
+    def on_action(self, window: ActionWindow, view):
+        self.ui.render_new()
+        if window.actor == self.human:
+            return self.ui.prompt_action(window)
+        return self.agents[window.actor].window_decision(window, view)
 
     def on_seer_check(
         self, seer_seat: int, checkable: list[int], view, day: int
@@ -111,6 +120,7 @@ class Controller:
         self.ui.render_new()
         self.ui.show_alive_update()
         if seat == self.human:
+            self.ui.show_speech_context(context)
             if context.round_number == 2:
                 self.ui.show_reply_prompt()
             return self.ui.prompt_speech()
@@ -125,10 +135,14 @@ class Controller:
         self.ui.render_new()
         if seat == self.human:
             return self.ui.prompt_vote(candidates)
-        return self.agents[seat].day_vote(view, day, candidates)
+        window = ActionWindow(self.game.stage, seat, day, self.game.phase,
+            tuple(self.game.alive_seats()), tuple(candidates), True,
+            vote_weight=3 if seat == self.game.sheriff else 2)
+        return self.agents[seat].day_vote(view, day, candidates, window=window)
 
 
 def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, LLMClient]:
+    board = get_board(getattr(args, "board", "six-classic"))
     if args.mock:
         config = LLMConfig(base_url="mock://local", api_key="mock", model="mock")
     else:
@@ -137,15 +151,15 @@ def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, 
     rng = random.Random(args.seed)
 
     # 座位与名字：人类随机座位，AI 用人设名
-    human_seat = rng.randrange(6)
-    ai_seats = [s for s in range(6) if s != human_seat]
-    personas = assign_personas(rng, 5)
-    names = [""] * 6
+    human_seat = rng.randrange(board.player_count)
+    ai_seats = [s for s in range(board.player_count) if s != human_seat]
+    personas = assign_personas(rng, board.player_count - 1)
+    names = [""] * board.player_count
     names[human_seat] = "你"
     for seat, persona in zip(ai_seats, personas):
         names[seat] = persona.name
 
-    game = Game(names=names, hooks=DecisionHooks(*([_unwired] * 5)), rng=rng)
+    game = Game(names=names, hooks=DecisionHooks(*([_unwired] * 5), action=_unwired), rng=rng, board=board)
     ui = TerminalUI(game, human_seat)
 
     wolves = [p.seat for p in game.players if p.role is Role.WEREWOLF]
@@ -156,6 +170,7 @@ def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, 
         agents[seat] = AIPlayer(
             client, seat=seat, name=names[seat], role=role,
             persona=persona, teammate_seats=mates,
+            board=board,
         )
 
     controller = Controller(game, ui, agents, human_seat)
@@ -165,7 +180,8 @@ def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, 
 
 def save_record(path: Path, game: Game, client: LLMClient, seed: int | None) -> None:
     payload = {
-        "version": 1, "seed": seed, "model": client.config.model,
+        "version": 2, "seed": seed, "model": client.config.model,
+        "board": game.board.public_projection(),
         "names": game.names, "winner": game.winner,
         "revealed_roles": [p.role.value for p in game.players] if game.winner is not None else None,
         "usage": asdict(client.usage),

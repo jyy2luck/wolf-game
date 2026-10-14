@@ -244,16 +244,16 @@ def test_public_record_excludes_private_data_and_never_overwrites(tmp_path):
     client.config.api_key = "API密钥哨兵"
     path = tmp_path / "game.json"
     save_record(path, game, client, 42)
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     data = json.loads(text)
-    assert len(data["events"]) == 3
-    assert data["events"][1]["extra"]["round_number"] == 2
-    assert data["events"][2]["extra"]["votes"] == [[0, 1]]
+    assert len(data["events"]) == 4
+    assert data["events"][2]["extra"]["round_number"] == 2
+    assert data["events"][3]["extra"]["votes"] == [[0, 1]]
     assert data["seed"] == 42 and data["model"] == "mock"
     assert all(secret not in text for secret in ("计划秘密哨兵", "API密钥哨兵", "seer_check", "potion_used"))
     with pytest.raises(FileExistsError):
         save_record(path, game, client, 42)
-    assert path.read_text() == text
+    assert path.read_text(encoding="utf-8") == text
 
 
 def test_record_failure_keeps_completed_game(monkeypatch, tmp_path, capsys, captured_terminal):

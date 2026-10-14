@@ -1,6 +1,7 @@
 """生成配置的旧格式兼容、校验和持久化。"""
 
 import json
+import os
 
 import pytest
 
@@ -19,7 +20,8 @@ def test_old_config_uses_new_defaults_without_rewriting(tmp_path, monkeypatch):
     assert loaded.max_tokens_limit == 16384
     assert loaded.thinking is None and loaded.json_mode is None
     assert path.read_text() == original
-    assert path.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert path.stat().st_mode & 0o777 == 0o600
 
 
 def test_generation_options_roundtrip(tmp_path, monkeypatch):
@@ -29,7 +31,8 @@ def test_generation_options_roundtrip(tmp_path, monkeypatch):
     expected = LLMConfig("https://x/v1", "test", "m", 1024, 8192, "disabled", True)
     config.save_config(expected)
     assert config.load_config() == expected
-    assert config.CONFIG_PATH.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert config.CONFIG_PATH.stat().st_mode & 0o777 == 0o600
 
 
 @pytest.mark.parametrize("options", [

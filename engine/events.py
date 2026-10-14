@@ -17,6 +17,11 @@ from dataclasses import dataclass, field
 class Phase(str, enum.Enum):
     NIGHT = "night"
     DAY = "day"
+    SHERIFF = "sheriff"
+    PK = "pk"
+    LAST_WORDS = "last_words"
+    HUNTER = "hunter"
+    BADGE = "badge"
 
 
 class EventKind(str, enum.Enum):
@@ -28,6 +33,8 @@ class EventKind(str, enum.Enum):
     SEER_CHECK = "seer_check"            # 预言家查验结果（夜）
     WITCH_KNEW = "witch_knew"            # 女巫得知当晚刀口（夜）
     POTION_USED = "potion_used"          # 女巫用药记录（夜）
+    GUARD = "guard"
+    HUNTER_READY = "hunter_ready"
     # 公开事件
     NIGHT_FALLS = "night_falls"          # 天黑
     DAWN = "dawn"                        # 天亮
@@ -37,6 +44,25 @@ class EventKind(str, enum.Enum):
     VOTE_RESULT = "vote_result"          # 票型公布
     EXILE = "exile"                      # 放逐结果（平票无人）
     GAME_OVER = "game_over"              # 终局（胜方与原因）
+    BOARD = "board"
+    STAGE = "stage"
+    HUNTER_SHOT = "hunter_shot"
+    IDIOT_REVEAL = "idiot_reveal"
+    SHERIFF_CANDIDATES = "sheriff_candidates"
+    SHERIFF_WITHDRAW = "sheriff_withdraw"
+    SHERIFF_VOTES = "sheriff_votes"
+    SHERIFF_ELECTED = "sheriff_elected"
+    SHERIFF_DIRECTION = "sheriff_direction"
+    BADGE = "badge"
+
+
+STAGE_LABELS = {
+    "night": "夜间行动", "dawn": "天亮公布", "speech": "首轮发言", "reply": "简短回应",
+    "vote": "放逐投票", "exile_revote": "放逐复投", "exile": "放逐结算", "exile_pk": "放逐PK发言",
+    "sheriff_run": "警长报名", "sheriff_speech": "警上发言", "sheriff_withdraw": "警长退水",
+    "sheriff_vote": "警长选举", "sheriff_revote": "警长复投", "sheriff_pk": "警长PK发言",
+    "sheriff_direction": "警长选择发言方向", "hunter_shot": "猎人开枪", "last_words": "遗言", "badge": "警徽处置",
+}
 
 
 @dataclass
@@ -112,10 +138,10 @@ def night_falls(day: int) -> Event:
     )
 
 
-def wolf_kill(day: int, wolf_seats: Iterable[int], target: int) -> Event:
+def wolf_kill(day: int, wolf_seats: Iterable[int], target: int | None) -> Event:
     return _make(
         EventKind.WOLF_KILL, day, Phase.NIGHT,
-        f"狼人确认刀口：{target + 1} 号。",
+        f"狼人确认刀口：{target + 1} 号。" if target is not None else "狼人确认空刀。",
         public=False, viewers=wolf_seats, seat=target, target=target,
     )
 
@@ -187,18 +213,19 @@ def peaceful_night(day: int) -> Event:
     )
 
 
-def speech(day: int, seat: int, name: str, index: int, content: str, *, round_number: int = 1) -> Event:
+def speech(day: int, seat: int, name: str, index: int, content: str, *, round_number: int = 1,
+           phase: Phase = Phase.DAY, stage: str = "speech") -> Event:
     label = "（回应）" if round_number == 2 else ""
     return _make(
-        EventKind.SPEECH, day, Phase.DAY,
+        EventKind.SPEECH, day, phase,
         f"[#{index}] {name}（{seat + 1} 号）{label}：{content}",
-        public=True, seat=seat, speech_index=index, name=name, content=content, round_number=round_number,
+        public=True, seat=seat, speech_index=index, name=name, content=content, round_number=round_number, stage=stage,
     )
 
 
 def vote_result(day: int, tally: dict[int, int], votes: list[tuple[int, int | None]] | None = None) -> Event:
     totals = "，".join(
-        f"{seat + 1} 号 {count} 票" for seat, count in sorted(tally.items())
+        f"{seat + 1} 号 {count:g} 票" for seat, count in sorted(tally.items())
     )
     details = "" if votes is None else "；个人投票：" + "，".join(
         f"{seat + 1}号→{target + 1}号" if target is not None else f"{seat + 1}号弃票"

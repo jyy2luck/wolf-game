@@ -14,7 +14,7 @@ from engine.game import SpeechContext
 
 class SpeechReference(BaseModel):
     speech_index: int = Field(ge=1, strict=True)
-    seat: int = Field(ge=1, le=6, strict=True)
+    seat: int = Field(ge=1, strict=True)
     day: int = Field(ge=1, strict=True)
     quote: str = Field(min_length=1)
 
@@ -33,10 +33,11 @@ _BEHAVIOR = re.compile(
 )
 _OBSERVATION = re.compile(r"眼神(?:明显|有些|很)?躲闪|拍(?:了)?桌(?:子)?|表情(?:很|明显)?慌张")
 _DEATH = re.compile(r"死了|死亡|被(?:放逐|投出|票出)(?:了|出局)?|出局了")
-_VOTE_COUNT = re.compile(r"(?:得(?:了)?|获(?:得)?(?:了)?|有)?\s*(\d+)\s*票")
+_VOTE_COUNT = re.compile(r"(?:得(?:了)?|获(?:得)?(?:了)?|有)?\s*(\d+(?:\.\d+)?)\s*票")
+_SKILL = re.compile(r"(?:已经|刚才)?(?:开(?:了)?枪|翻(?:了)?牌|移交(?:了)?警徽|撕(?:了)?毁?警徽)")
 _PERSONAL_VOTE = re.compile(
     r"^\s*(?:(?:今天|今日|昨天|昨日|前天|第\s*\d+\s*天)\s*)?(?:把票)?"
-    r"(?:投(?:票)?(?:给|向)?(?:了)?\s*([1-6])\s*号|弃(?:了)?票)"
+    r"(?:投(?:票)?(?:给|向)?(?:了)?\s*([1-9]\d*)\s*号|弃(?:了)?票)"
 )
 _PREDICTED = re.compile(r"将|会|可能|大概|预计|估计|应该")
 _SILENCE = re.compile(r"(?:故意|刻意)(?:不说话|不发言|沉默)|(?:躲|逃避)(?:着)?发言")
@@ -56,7 +57,7 @@ def speech_index(view: Sequence[Event]) -> dict[int, Event]:
 
 def _mentions(text: str, names: dict[int, str]) -> list[tuple[int, int, int]]:
     mentions = [(m.start(), m.end(), int(m[1]) - 1)
-                for m in re.finditer(r"(?<!\d)([1-6])\s*号", text)]
+                for m in re.finditer(r"(?<!\d)([1-9]\d*)\s*号", text)]
     for seat, name in names.items():
         # 单字人称（例如座位表中的“你”）不能可靠地当作姓名解析。
         if len(name) < 2:
@@ -118,6 +119,11 @@ def validate_speech_facts(
     context: SpeechContext | None = None,
     view: Sequence[Event] | None = None,
 ) -> str | None:
+    if view is not None:
+        board = next((e for e in view if e.public and e.kind is EventKind.BOARD), None)
+        seats = set(range(board.extra["player_count"])) if board else None
+        if seats is not None and any(s not in seats for _, _, s in _mentions(speech, {})):
+            return "正文提及的座位超出当前板子合法座位集合"
     body_ids = {int(m[1]) for m in _CITATION.finditer(speech)}
     refs = {r.speech_index: r for r in references}
     if len(refs) != len(references):
@@ -165,13 +171,18 @@ def validate_speech_facts(
 
         for i, (start, end, seat) in enumerate(mentions):
             prefix = clause[:start]
+            skill = _SKILL.match(clause[end:].strip()) if view is not None else None
+            if skill is not None and not (_FUTURE.search(prefix) or _PREDICTED.search(prefix) or _DENIED_PREFIX.search(prefix)):
+                kinds = {EventKind.HUNTER_SHOT} if "枪" in skill[0] else {EventKind.IDIOT_REVEAL} if "牌" in skill[0] else {EventKind.BADGE}
+                if not any(e.public and e.kind in kinds and e.seat == seat for e in view):
+                    return f"公开记录没有{seat + 1}号的真实技能/警徽事件；身份声明不等于技能"
             personal_vote = _PERSONAL_VOTE.match(clause[end:]) if view is not None else None
             if personal_vote is not None:
                 statement = prefix + clause[end:end + personal_vote.end()]
                 if _FUTURE.search(statement) or _PREDICTED.search(statement) or _DENIED_PREFIX.search(prefix):
                     continue
                 requested_day = _day_at(statement, day)
-                results = [e for e in view if e.public and e.kind is EventKind.VOTE_RESULT
+                results = [e for e in view if e.public and e.kind in {EventKind.VOTE_RESULT, EventKind.SHERIFF_VOTES}
                            and (requested_day is None or e.day == requested_day)]
                 if not results or "votes" not in results[-1].extra:
                     return "所述时间尚无公开个人票型，不能编造个人投票目标"
@@ -218,12 +229,13 @@ def validate_speech_facts(
                     return "所述时间尚无公开票型，不能编造得票数"
                 result = results[-1]
                 actual = result.extra['tally'].get(seat, 0)
-                if int(votes[1]) != actual:
+                if float(votes[1]) != actual:
                     return f"第 {result.day} 天公开票型中 {seat + 1} 号是 {actual} 票，不是 {votes[1]} 票"
                 continue
             player_records = [e for e in records.values() if e.seat == seat]
             if action is silence:
-                if (context is not None and seat in context.remaining) or not any(e.day == day for e in player_records):
+                stage_records = [e for e in player_records if context is None or e.extra.get("stage", "speech") == context.stage]
+                if (context is not None and seat in context.remaining) or not any(e.day == day for e in stage_records):
                     return f"{seat + 1} 号今天尚未完成发言，正常轮候不能作为故意沉默或躲发言的证据"
             elif not player_records:
                 return f"{seat + 1} 号整局尚无发言记录，不能断言其「{action[0]}」"

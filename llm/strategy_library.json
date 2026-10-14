@@ -1,375 +1,585 @@
 {
-  "version": 1,
+  "version": 2,
   "source": "docs/ai-strategy-library-design.md",
   "roles": {
     "平民": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "建立信息结构；记录身份与验人声明，比较不同解释；提出一两个能区分解释的问题；若接近人数线或屠边线，立即提高归票优先级"
+        "guidance": "建立信息结构；记录身份与验人声明，比较不同解释；提出一两个能区分解释的问题；若接近人数线或屠边线，立即提高归票优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "形成可修正站边；结合已有信息选暂定阵营线，识别被多人推动的放逐对象；检查最多狼数分支；出现可靠反证、关键技能信息或高分票风险时改站边"
+        "guidance": "形成可修正站边；结合已有信息选暂定阵营线，识别被多人推动的放逐对象；检查最多狼数分支；出现可靠反证、关键技能信息或高分票风险时改站边",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "判断下一夜；比较放逐候选及其后续减员；避免仅凭存在感低就推出一个人；多狼分支成立且错误放逐会导致危险夜晚时，收紧目标选择"
+        "guidance": "判断下一夜；比较放逐候选及其后续减员；避免仅凭存在感低就推出一个人；多狼分支成立且错误放逐会导致危险夜晚时，收紧目标选择",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "区分一狼与两狼；在 2 狼 3 好人分支中优先形成正确集中票；一狼分支中检查隐藏狼和倒钩；规则推断排除某分支后调整风险偏好"
+        "guidance": "区分一狼与两狼；在 2 狼 3 好人分支中优先形成正确集中票；一狼分支中检查隐藏狼和倒钩；规则推断排除某分支后调整风险偏好",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "排除与反倒钩；人数局确认仅一狼；比较三名其他玩家，重审此前“站对边”的人；新信息确认好人后缩小候选，避免重新怀疑确定好人"
+        "guidance": "排除与反倒钩；人数局确认仅一狼；比较三名其他玩家，重审此前“站对边”的人；新信息确认好人后缩小候选，避免重新怀疑确定好人",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "最终选择；人数局确认一狼；在其余两人中选目标，争取另一好人同票；对平票和夜晚防护有明确计划时才考虑等待"
+        "guidance": "最终选择；人数局确认一狼；在其余两人中选目标，争取另一好人同票；对平票和夜晚防护有明确计划时才考虑等待",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "规则专用残局；仅在其他胜利规则或待结算场景下启用，分析票权、保护与第三方关系；到判胜点后按规则终局，不套用普通三人决赛逻辑"
+        "guidance": "规则专用残局；仅在其他胜利规则或待结算场景下启用，分析票权、保护与第三方关系；到判胜点后按规则终局，不套用普通三人决赛逻辑",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "预言家": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "信息探索与发布窗口；无历史时从未知对象公平选择；有历史时查对不同结果都能改变行动的人；小配置、多狼或屠边危险时提前披露，不因人数多就固定隐藏"
+        "guidance": "信息探索与发布窗口；无历史时从未知对象公平选择；有历史时查对不同结果都能改变行动的人；小配置、多狼或屠边危险时提前披露，不因人数多就固定隐藏",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "查关键分歧；查左右站边的未知玩家，或能拆解两套身份解释的对象；发布已有有效信息；对跳、本人或金水被推、下一夜生存机会降低时转主动带队"
+        "guidance": "查关键分歧；查左右站边的未知玩家，或能拆解两套身份解释的对象；发布已有有效信息；对跳、本人或金水被推、下一夜生存机会降低时转主动带队",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "当轮兑现；提高发布真实查杀、保护真实金水与集中投票的优先级；若结果不足以定票，清楚区分真实查验与推测狼坑"
+        "guidance": "当轮兑现；提高发布真实查杀、保护真实金水与集中投票的优先级；若结果不足以定票，清楚区分真实查验与推测狼坑",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "信息与票数结合；两狼分支下尤其重视当日正确放逐；比较查杀目标和可争取的好人票；缺乏下一轮机会时，不把披露拖到下一天"
+        "guidance": "信息与票数结合；两狼分支下尤其重视当日正确放逐；比较查杀目标和可争取的好人票；缺乏下一轮机会时，不把披露拖到下一天",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "一狼定位；人数局排除双狼，结合真实结果缩小剩余候选；夜验有区分力的未知对象；排除后已唯一定位时，行动优先于重复验证"
+        "guidance": "一狼定位；人数局排除双狼，结合真实结果缩小剩余候选；夜验有区分力的未知对象；排除后已唯一定位时，行动优先于重复验证",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "最终信息与说服；用已有真实结果或严密排除指出最后一狼，争取另一好人同票；没有确定结果时保留不确定性，仍作出当前选择"
+        "guidance": "最终信息与说服；用已有真实结果或严密排除指出最后一狼，争取另一好人同票；没有确定结果时保留不确定性，仍作出当前选择",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "特殊规则处理；使用已取得的结果参与屠城、第三方或技能连锁局面；不假设还一定有夜验或白天发布机会"
+        "guidance": "特殊规则处理；使用已取得的结果参与屠城、第三方或技能连锁局面；不假设还一定有夜验或白天发布机会",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "女巫": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "首夜保人、资源经营；无行为信息时通常提高救人优先级；未知目标的盲毒收益与风险一起比较；已有可靠狼信息、屠边危险或特殊连锁时使用相应专用卡"
+        "guidance": "首夜保人、资源经营；无行为信息时通常提高救人优先级；未知目标的盲毒收益与风险一起比较；已有可靠狼信息、屠边危险或特殊连锁时使用相应专用卡",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "可信信息与用药收益；比较救信息核心、毒高度可疑对象和保留资源；检查 3 狼等危险分支；高可信危险分支中不用药会立即输时，提高行动优先级"
+        "guidance": "可信信息与用药收益；比较救信息核心、毒高度可疑对象和保留资源；检查 3 狼等危险分支；高可信危险分支中不用药会立即输时，提高行动优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "计算两轮减员；检查白天错放逐后下一夜的救、毒、守和枪，避免默认“还能等”；药量、死亡和狼数解释变化时重新计算"
+        "guidance": "计算两轮减员；检查白天错放逐后下一夜的救、毒、守和枪，避免默认“还能等”；药量、死亡和狼数解释变化时重新计算",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "一狼/两狼分支；2 狼 3 好人时，救人可阻止刀口减员，毒中狼可改变人数；误毒可能直接输；有解药时比较保命与毒狼，不一律要求冒险毒"
+        "guidance": "一狼/两狼分支；2 狼 3 好人时，救人可阻止刀口减员，毒中狼可改变人数；误毒可能直接输；有解药时比较保命与毒狼，不一律要求冒险毒",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "防止双重好人减员；人数局为 1 狼 3 好人；不用药且仅刀一好人后仍是 1 狼 2 好人，误毒另一好人则可能到 1 狼 1 好人；对最后一狼有强依据时提高直接取胜用毒优先级"
+        "guidance": "防止双重好人减员；人数局为 1 狼 3 好人；不用药且仅刀一好人后仍是 1 狼 2 好人，误毒另一好人则可能到 1 狼 1 好人；对最后一狼有强依据时提高直接取胜用毒优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "必须行动的夜晚；人数局为 1 狼 2 好人；无其他防护时，救刀口或毒最后一狼才能阻止次晨判负；自救限制、可用药和其他真实防护改变可选分支"
+        "guidance": "必须行动的夜晚；人数局为 1 狼 2 好人；无其他防护时，救刀口或毒最后一狼才能阻止次晨判负；自救限制、可用药和其他真实防护改变可选分支",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "技能时序专用；只在待结算或其他胜利规则中讨论用药，严格判断行动窗口是否仍存在；已终局时没有继续用药的机会"
+        "guidance": "技能时序专用；只在待结算或其他胜利规则中讨论用药，严格判断行动窗口是否仍存在；已终局时没有继续用药的机会",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "猎人": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "隐藏与正常分析；以好人视角参与判断，降低被绕枪技能针对的概率；无信息且可弃枪时审慎评估盲枪；本人将被错误放逐、必须公开纠偏或枪有明确收益时提高披露优先级"
+        "guidance": "隐藏与正常分析；以好人视角参与判断，降低被绕枪技能针对的概率；无信息且可弃枪时审慎评估盲枪；本人将被错误放逐、必须公开纠偏或枪有明确收益时提高披露优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "威慑与反击目标；评估公开身份能否改善归票；建立可修正的枪口候选；对跳、绕枪危险和多狼临界分支变化时调整"
+        "guidance": "威慑与反击目标；评估公开身份能否改善归票；建立可修正的枪口候选；对跳、绕枪危险和多狼临界分支变化时调整",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "计算放逐后反击；比较出狼、误出自己再开枪、误伤另一好人的完整分支；不因能开枪就主动接受无收益的放逐"
+        "guidance": "计算放逐后反击；比较出狼、误出自己再开枪、误伤另一好人的完整分支；不因能开枪就主动接受无收益的放逐",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "关键身份与枪口；两狼分支下，先确认误放逐后是否还有开枪窗口，再评估能否追击一狼；若胜负先判定，不能依赖终局后的枪追回"
+        "guidance": "关键身份与枪口；两狼分支下，先确认误放逐后是否还有开枪窗口，再评估能否追击一狼；若胜负先判定，不能依赖终局后的枪追回",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "一狼目标审查；人数局仅一狼，使用可信结果和排除法；可弃枪时比较保留好人票与猜枪；已高度定位最后一狼时提高开枪优先级"
+        "guidance": "一狼目标审查；人数局仅一狼，使用可信结果和排除法；可弃枪时比较保留好人票与猜枪；已高度定位最后一狼时提高开枪优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "决定性反击；争取正确投票；死亡时按开枪前人数和规则选择目标，不预设自己一定能逆转；被毒或特殊击杀禁枪时，提前提高白天披露和纠偏优先级"
+        "guidance": "决定性反击；争取正确投票；死亡时按开枪前人数和规则选择目标，不预设自己一定能逆转；被毒或特殊击杀禁枪时，提前提高白天披露和纠偏优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "待开枪或特殊残局；依规则计算最后一枪、连锁和判胜；可能是普通人数表无法描述的过渡状态；仅在技能窗口真实存在时推荐枪击行动"
+        "guidance": "待开枪或特殊残局；依规则计算最后一枪、连锁和判胜；可能是普通人数表无法描述的过渡状态；仅在技能窗口真实存在时推荐枪击行动",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "狼人": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "分工与可信视角；协调是否悍跳、谁配合、谁保留；规划刀口和可维持的声明；已有接近屠边或人数胜利机会时提高兑现优先级"
+        "guidance": "分工与可信视角；协调是否悍跳、谁配合、谁保留；规划刀口和可维持的声明；已有接近屠边或人数胜利机会时提高兑现优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "争取关键票；精确计算本方票、可争取的好人票和最高票规则；避免所有狼同时暴露同一保护关系；假预言家失去可信度或队友受到查杀时调整分工"
+        "guidance": "争取关键票；精确计算本方票、可争取的好人票和最高票规则；避免所有狼同时暴露同一保护关系；假预言家失去可信度或队友受到查杀时调整分工",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "夜刀与白天联动；两狼时比较错放逐加夜刀能否取胜；一狼时经营单人可信身份；女巫毒、猎人枪或守卫防护改变终局分支时调整刀口"
+        "guidance": "夜刀与白天联动；两狼时比较错放逐加夜刀能否取胜；一狼时经营单人可信身份；女巫毒、猎人枪或守卫防护改变终局分支时调整刀口",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "区分双狼和独狼；2 狼 3 好人时集中票推动错误放逐，或评估平票后的夜晚；1 狼 4 好人时避免无收益暴露；目标票数不足、反击资源仍在或假声明被反证时换目标"
+        "guidance": "区分双狼和独狼；2 狼 3 好人时集中票推动错误放逐，或评估平票后的夜晚；1 狼 4 好人时避免无收益暴露；目标票数不足、反击资源仍在或假声明被反证时换目标",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "独狼对抗；人数局仅剩一狼，争取一张关键好人票，保留可被误放逐的目标；不再使用保护存活狼队友的计划；死队友历史可用于解释"
+        "guidance": "独狼对抗；人数局仅剩一狼，争取一张关键好人票，保留可被误放逐的目标；不再使用保护存活狼队友的计划；死队友历史可用于解释",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "取胜兑现；人数局为一狼两好人，集中说服其中一人误投另一人；评估平票后的防护和反击；另一好人持可用解药、毒、枪等时不把夜晚视作自动胜利"
+        "guidance": "取胜兑现；人数局为一狼两好人，集中说服其中一人误投另一人；评估平票后的防护和反击；另一好人持可用解药、毒、枪等时不把夜晚视作自动胜利",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "完整结算与其他胜利条件；检查待开枪、连锁、屠城或第三方博弈；已到终局不再推荐补充行动"
+        "guidance": "完整结算与其他胜利条件；检查待开枪、连锁、屠城或第三方博弈；已到终局不再推荐补充行动",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "守卫": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "比较首夜空守与守人，观察谁能提供关键技能或信息；同守同救无冲突时，不能照搬“首夜必须空守”"
+        "guidance": "比较首夜空守与守人，观察谁能提供关键技能或信息；同守同救无冲突时，不能照搬“首夜必须空守”",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "在信息核心、自守和高概率刀口之间选择，检查连续守护限制；多狼或屠边危险提高阻止关键减员的优先级"
+        "guidance": "在信息核心、自守和高概率刀口之间选择，检查连续守护限制；多狼或屠边危险提高阻止关键减员的优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "计算接下来一刀的后果，避免只重复“预言家、自守”固定轮换；当前信息核心不可信、身份类别濒危或本人被针对时改目标"
+        "guidance": "计算接下来一刀的后果，避免只重复“预言家、自守”固定轮换；当前信息核心不可信、身份类别濒危或本人被针对时改目标",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "评估 2 狼 3 好人和 1 狼 4 好人分支，保护能延续游戏或保留决定性技能的人；已知女巫救人计划只在真实可见或合法沟通范围内使用"
+        "guidance": "评估 2 狼 3 好人和 1 狼 4 好人分支，保护能延续游戏或保留决定性技能的人；已知女巫救人计划只在真实可见或合法沟通范围内使用",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "人数局仅一狼，判断其最有价值刀口；评估守神职与保留好人票；根据连守限制和夜刀历史改变预测，避免可被机械猜中的固定顺序"
+        "guidance": "人数局仅一狼，判断其最有价值刀口；评估守神职与保留好人票；根据连守限制和夜刀历史改变预测，避免可被机械猜中的固定顺序",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "人数局需要防止关键好人死亡，结合自守、禁连守与其他防护选目标；没有合法有效守护目标时，不虚构能保出下一天的方案"
+        "guidance": "人数局需要防止关键好人死亡，结合自守、禁连守与其他防护选目标；没有合法有效守护目标时，不虚构能保出下一天的方案",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "只在其他胜利规则或特殊技能窗口下比较最后守护；判胜已经完成时不能补守"
+        "guidance": "只在其他胜利规则或特殊技能窗口下比较最后守护；判胜已经完成时不能补守",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "白痴": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "正常分析与表水，保留票权；隐藏技能是否有利要看特殊狼和胜利条件；面临无法纠偏的错误放逐时比较亮身份与触发技能"
+        "guidance": "正常分析与表水，保留票权；隐藏技能是否有利要看特殊狼和胜利条件；面临无法纠偏的错误放逐时比较亮身份与触发技能",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "评估翻牌信息、白天放逐机会和失票代价；不把消耗好人的放逐轮次一律当作浪费狼队资源"
+        "guidance": "评估翻牌信息、白天放逐机会和失票代价；不把消耗好人的放逐轮次一律当作浪费狼队资源",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "检查失票后好人能否仍形成足够最高票；自己已经翻牌时提高信息组织作用，停止把自己计入可投票者"
+        "guidance": "检查失票后好人能否仍形成足够最高票；自己已经翻牌时提高信息组织作用，停止把自己计入可投票者",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "两狼分支下尤其比较实际阵营票权；避免为自证主动丢掉关键票；若技能能阻止本次放逐直接判负，则按真实触发顺序使用"
+        "guidance": "两狼分支下尤其比较实际阵营票权；避免为自证主动丢掉关键票；若技能能阻止本次放逐直接判负，则按真实触发顺序使用",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "人数局仅一狼，保留或争取好人集中票；翻牌后协助剩余投票者判断；身份已公开且属规则确认时无需重复表水，重点贡献目标判断"
+        "guidance": "人数局仅一狼，保留或争取好人集中票；翻牌后协助剩余投票者判断；身份已公开且属规则确认时无需重复表水，重点贡献目标判断",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "一狼两好人人数不代表好人有两票；失票会明显改变最高票与平票分支；无票时依赖说服、夜间防护和合法技能，而非不存在的自己一票"
+        "guidance": "一狼两好人人数不代表好人有两票；失票会明显改变最高票与平票分支；无票时依赖说服、夜间防护和合法技能，而非不存在的自己一票",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "在屠边、屠城等规则中检查自身角色分类、免死资源及夜刀；已用免放逐技能不能据此防狼刀，除非另有明确能力"
+        "guidance": "在屠边、屠城等规则中检查自身角色分类、免死资源及夜刀；已用免放逐技能不能据此防狼刀，除非另有明确能力",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "白狼王": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "模仿好人视角隐藏，推断关键目标，比较立即爆破与保留技能；明确信息核心或屠边目标出现时提高爆破优先级"
+        "guidance": "模仿好人视角隐藏，推断关键目标，比较立即爆破与保留技能；明确信息核心或屠边目标出现时提高爆破优先级",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "比较去除信息、票权和防护的收益，以及自身减少一狼的成本；不能仅因自己受怀疑就默认自爆最优"
+        "guidance": "比较去除信息、票权和防护的收益，以及自身减少一狼的成本；不能仅因自己受怀疑就默认自爆最优",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "计算自爆双方减员后及下一夜的局面，协调剩余狼队计划；特殊角色反击、判胜先后或没有合法窗口时重算"
+        "guidance": "计算自爆双方减员后及下一夜的局面，协调剩余狼队计划；特殊角色反击、判胜先后或没有合法窗口时重算",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "两狼时比较交换关键好人与保留两张狼票；独狼时检查自爆后是否已无狼；不依赖“只要带人就赚”的固定判断"
+        "guidance": "两狼时比较交换关键好人与保留两张狼票；独狼时检查自爆后是否已无狼；不依赖“只要带人就赚”的固定判断",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "人数局通常只剩自己一狼；自爆可能先使狼全灭，收益必须按完整规则计算；只有规则允许的连锁或目标胜利分支能成立时才启用取胜自爆卡"
+        "guidance": "人数局通常只剩自己一狼；自爆可能先使狼全灭，收益必须按完整规则计算；只有规则允许的连锁或目标胜利分支能成立时才启用取胜自爆卡",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "优先比较普通误放逐路线与特殊技能路线；不把带走一名好人自动等同狼胜，检查自爆导致的狼全灭"
+        "guidance": "优先比较普通误放逐路线与特殊技能路线；不把带走一名好人自动等同狼胜，检查自爆导致的狼全灭",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "使用特殊技能与多目标同时胜利的明确裁决；行动窗口或本阵营胜利条件已不成立时退出"
+        "guidance": "使用特殊技能与多目标同时胜利的明确裁决；行动窗口或本阵营胜利条件已不成立时退出",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "狼美人": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "隐藏身份，选择潜在关键目标，保留普通狼的配合计划；没有可靠具体身份信息时使用候选解释，不直接读取神职表"
+        "guidance": "隐藏身份，选择潜在关键目标，保留普通狼的配合计划；没有可靠具体身份信息时使用候选解释，不直接读取神职表",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "比较连结信息核心、防护者、关键票者与普通好人；目标下一夜可能正常死亡、连结失效或禁连选时及时换目标"
+        "guidance": "比较连结信息核心、防护者、关键票者与普通好人；目标下一夜可能正常死亡、连结失效或禁连选时及时换目标",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "展开自身出局连带与狼刀分支，判断是否能达到实际胜利条件；不能把“绑住神职”本身当作已经阻止其当轮技能"
+        "guidance": "展开自身出局连带与狼刀分支，判断是否能达到实际胜利条件；不能把“绑住神职”本身当作已经阻止其当轮技能",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "两狼时评估牺牲自身能否留下另一狼的取胜局面；独狼时检查自身死后的阵营裁决；技能是否触发于毒杀或放逐改变可用方案"
+        "guidance": "两狼时评估牺牲自身能否留下另一狼的取胜局面；独狼时检查自身死后的阵营裁决；技能是否触发于毒杀或放逐改变可用方案",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "人数局只剩一狼，比较普通误放逐路线与连带特殊路线；自己死亡可能导致狼全灭，必须检查连锁后判胜"
+        "guidance": "人数局只剩一狼，比较普通误放逐路线与连带特殊路线；自己死亡可能导致狼全灭，必须检查连锁后判胜",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "精确计算最后连结、有效票与对手反击；对方不知道连结时不能依赖公开威慑；知道也不代表会帮狼"
+        "guidance": "精确计算最后连结、有效票与对手反击；对方不知道连结时不能依赖公开威慑；知道也不代表会帮狼",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "仅在技能待触发、屠城或第三方结算中使用特定卡；按连带死亡和同时胜利的规则停止或继续"
+        "guidance": "仅在技能待触发、屠城或第三方结算中使用特定卡；按连带死亡和同时胜利的规则停止或继续",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ],
     "丘比特": [
       {
         "min_alive": 9,
         "max_alive": null,
-        "guidance": "首夜在合法目标中选择连结，随后依据真实可见关系确认目标；隐藏或披露关系要有收益；看不到目标身份时不使用全知最优情侣搭配"
+        "guidance": "首夜在合法目标中选择连结，随后依据真实可见关系确认目标；隐藏或披露关系要有收益；看不到目标身份时不使用全知最优情侣搭配",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 7,
         "max_alive": 8,
-        "guidance": "比较保护情侣、帮助原阵营或推动第三方路线，计算一方死亡的连锁风险；恋人关系不自动改变阵营，只有规则确认后更新"
+        "guidance": "比较保护情侣、帮助原阵营或推动第三方路线，计算一方死亡的连锁风险；恋人关系不自动改变阵营，只有规则确认后更新",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 6,
         "max_alive": 6,
-        "guidance": "结合狼数候选与关联减员判断危险，维护可兑现的投票合作；私下交流仅在规则允许时采用；不能直接共享全部私有结果"
+        "guidance": "结合狼数候选与关联减员判断危险，维护可兑现的投票合作；私下交流仅在规则允许时采用；不能直接共享全部私有结果",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 5,
         "max_alive": 5,
-        "guidance": "计算本方实际票权、对手技能及情侣同时减员分支；不沿用普通两狼/一狼人数表确定所有人的立场"
+        "guidance": "计算本方实际票权、对手技能及情侣同时减员分支；不沿用普通两狼/一狼人数表确定所有人的立场",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 4,
         "max_alive": 4,
-        "guidance": "比较不同放逐对象带来的连锁、存活阵营与胜负裁决；若情侣仍属普通阵营，继续服务其实际阵营目标"
+        "guidance": "比较不同放逐对象带来的连锁、存活阵营与胜负裁决；若情侣仍属普通阵营，继续服务其实际阵营目标",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 3,
         "max_alive": 3,
-        "guidance": "依据专属终局条件选择投票与关系披露，检查“剩下情侣”是否真的已胜；非情侣的丘比特是否需要存活、是否属于第三方均按板子定义"
+        "guidance": "依据专属终局条件选择投票与关系披露，检查“剩下情侣”是否真的已胜；非情侣的丘比特是否需要存活、是否属于第三方均按板子定义",
+        "victory_rules": [
+          "parity"
+        ]
       },
       {
         "min_alive": 0,
         "max_alive": 2,
-        "guidance": "检查情侣存活、原阵营、第三方胜利与连锁后的终局；不能把“两人情侣存活”跨板子视作自动胜利"
+        "guidance": "检查情侣存活、原阵营、第三方胜利与连锁后的终局；不能把“两人情侣存活”跨板子视作自动胜利",
+        "victory_rules": [
+          "parity"
+        ]
       }
     ]
   },
@@ -388,17 +598,44 @@
         "wolf_kill",
         "seer_check",
         "witch_act",
-        "hunter_shot",
         "guard",
-        "link",
-        "special",
+        "hunter_shot",
+        "last_words",
+        "sheriff_run",
+        "sheriff_withdraw",
+        "sheriff_vote",
+        "sheriff_direction",
+        "badge",
+        "last_words",
+        "last_words",
         "last_words"
       ],
       "priority": 100,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C02",
@@ -412,7 +649,8 @@
         "speech",
         "vote",
         "seer_check",
-        "witch_act"
+        "witch_act",
+        "last_words"
       ],
       "priority": 35,
       "required_rules": [],
@@ -420,7 +658,28 @@
       "excluded_flags": [],
       "boost_flags": [
         "seer_contested"
-      ]
+      ],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C04"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C03",
@@ -432,13 +691,35 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C04",
@@ -450,19 +731,41 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 45,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C05",
       "role": "*",
       "name": "检查人数危险",
-      "guidance": "比较错放逐、平票、狼刀、技能命中的分支",
+      "guidance": "按真实胜利规则计算完整结算：人数局看狼好数量，屠边看神民类别；同时检查实际票权、保护、毒枪与合法窗口。",
       "adjustment": "规则或候选狼数变化后重新评估",
       "min_alive": 1,
       "max_alive": null,
@@ -472,17 +775,44 @@
         "wolf_kill",
         "seer_check",
         "witch_act",
-        "hunter_shot",
         "guard",
-        "link",
-        "special",
+        "hunter_shot",
+        "last_words",
+        "sheriff_run",
+        "sheriff_withdraw",
+        "sheriff_vote",
+        "sheriff_direction",
+        "badge",
+        "last_words",
+        "last_words",
         "last_words"
       ],
       "priority": 100,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C06",
@@ -494,13 +824,35 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 55,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C07",
@@ -511,13 +863,35 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 65,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C08",
@@ -533,17 +907,44 @@
         "wolf_kill",
         "seer_check",
         "witch_act",
-        "hunter_shot",
         "guard",
-        "link",
-        "special",
+        "hunter_shot",
+        "last_words",
+        "sheriff_run",
+        "sheriff_withdraw",
+        "sheriff_vote",
+        "sheriff_direction",
+        "badge",
+        "last_words",
+        "last_words",
         "last_words"
       ],
       "priority": 30,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "C09",
@@ -554,13 +955,35 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 75,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V01",
@@ -571,13 +994,35 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 105,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V02",
@@ -589,7 +1034,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 75,
       "required_rules": [],
@@ -599,7 +1045,28 @@
       "excluded_flags": [],
       "boost_flags": [
         "seer_contested"
-      ]
+      ],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V03",
@@ -611,7 +1078,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 160,
       "required_rules": [],
@@ -619,7 +1087,28 @@
         "self_accused"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V04",
@@ -631,7 +1120,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 95,
       "required_rules": [],
@@ -639,7 +1129,28 @@
       "excluded_flags": [],
       "boost_flags": [
         "critical_possible"
-      ]
+      ],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V05",
@@ -650,7 +1161,8 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 45,
       "required_rules": [],
@@ -658,7 +1170,28 @@
       "excluded_flags": [
         "critical_possible"
       ],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V06",
@@ -669,7 +1202,8 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 20,
       "required_rules": [
@@ -679,7 +1213,28 @@
       "excluded_flags": [
         "critical_possible"
       ],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "V07",
@@ -691,7 +1246,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 70,
       "required_rules": [],
@@ -699,7 +1255,28 @@
       "excluded_flags": [],
       "boost_flags": [
         "small_population"
-      ]
+      ],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "S01",
@@ -720,7 +1297,30 @@
       "excluded_flags": [
         "has_check"
       ],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "seer_check"
+      ],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "S02",
@@ -737,7 +1337,30 @@
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "seer_check"
+      ],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "S03",
@@ -749,7 +1372,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 150,
       "required_rules": [],
@@ -757,7 +1381,28 @@
         "has_wolf_check"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "S04",
@@ -769,7 +1414,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 95,
       "required_rules": [],
@@ -777,19 +1423,41 @@
         "has_good_check"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "S05",
       "role": "预言家",
       "name": "对跳回应",
       "guidance": "维护真实结果，指出对方具体声明冲突，回应摇摆好人的疑问",
-      "adjustment": "对跳者可能是好人穿衣服；对方被真实验好时不继续当狼处理",
+      "adjustment": "若预期支持者改票，核对公开记录重新争取；自身查验不自动成为大家相信的事实。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 130,
       "required_rules": [],
@@ -797,7 +1465,28 @@
         "seer_counterclaim"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "对跳者的查验时间、目标和争取票的对象。"
+      ],
+      "responses": [
+        "摇摆好人可能尚不相信真结果，要求公开依据；狼人可能倒钩。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "L01"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "真查杀面对另一预言家，先争取可回应者。",
+      "counterexample": "将未站边好人直接认证为狼。"
     },
     {
       "id": "S06",
@@ -808,7 +1497,8 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 45,
       "required_rules": [],
@@ -817,7 +1507,28 @@
         "critical_possible",
         "has_wolf_check"
       ],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "S07",
@@ -829,6 +1540,7 @@
       "max_alive": null,
       "actions": [
         "speech",
+        "last_words",
         "last_words"
       ],
       "priority": 90,
@@ -837,7 +1549,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "W01",
@@ -859,7 +1592,32 @@
         "antidote_available"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "witch_act"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "W02",
@@ -874,14 +1632,39 @@
       ],
       "priority": 150,
       "required_rules": [
-        "witch_self_save"
+        "witch_save"
       ],
       "required_flags": [
         "knife_is_self",
         "antidote_available"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "witch_act"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "W03",
@@ -900,7 +1683,32 @@
         "poison_available"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "witch_act"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "W04",
@@ -927,20 +1735,46 @@
         "settled"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "witch_act"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "W05",
       "role": "女巫",
       "name": "刀口信息经营",
       "guidance": "不允许自刀时将真实刀口排除出狼候选；允许自刀时仅作证据",
-      "adjustment": "不能把玩家自称银水当作自己的私有刀口记录",
+      "adjustment": "允许自刀不认证刀口好人；平安夜有空刀/守护解释，不能确定解药已用。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
         "vote",
-        "witch_act"
+        "witch_act",
+        "last_words"
       ],
       "priority": 75,
       "required_rules": [],
@@ -948,7 +1782,30 @@
         "has_knife"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "银水声明与可见死讯、保护规则是否相容。"
+      ],
+      "responses": [
+        "允许自刀时狼可伪造好人印象；他人可能质疑药量。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "L11"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "允许自刀板子中把银水作为条件线索。",
+      "counterexample": "沿用六人规则直接认证银水好人。"
     },
     {
       "id": "W06",
@@ -959,7 +1816,8 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 140,
       "required_rules": [],
@@ -968,7 +1826,30 @@
         "known_good_accused"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "W07",
@@ -990,7 +1871,32 @@
         "poison_available"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "witch_act"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "H01",
@@ -1002,13 +1908,37 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 70,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "H02",
@@ -1020,7 +1950,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 95,
       "required_rules": [],
@@ -1028,14 +1959,37 @@
         "has_public_speech"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "H03",
       "role": "猎人",
       "name": "有依据开枪",
       "guidance": "优先真实可确定狼或证据最强目标，结合命中和误伤后的结算",
-      "adjustment": "已确认好人不因情绪或站边分歧成为默认枪口",
+      "adjustment": "按当时合法存活目标选择；比较误枪及狼全灭优先，弃枪不公开死因。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
@@ -1047,7 +2001,32 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "hunter_shot"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "真实引擎授权有枪；自称猎人不代表实际资格。"
+      ],
+      "responses": [
+        "狼刀和放逐可触发反击，毒或混合中毒无枪。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "W03"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "被刀且无毒的真实猎人先枪后遗言。",
+      "counterexample": "混合中毒仍希望用枪追回终局。"
     },
     {
       "id": "H04",
@@ -1066,7 +2045,32 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "hunter_shot"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "H05",
@@ -1077,7 +2081,8 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1085,7 +2090,30 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "H06",
@@ -1096,7 +2124,8 @@
       "min_alive": 1,
       "max_alive": null,
       "actions": [
-        "speech"
+        "speech",
+        "last_words"
       ],
       "priority": 60,
       "required_rules": [
@@ -1104,7 +2133,30 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "H07",
@@ -1123,37 +2175,83 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L01",
       "role": "狼人",
       "name": "悍跳",
       "guidance": "选择假结果与时间线，争取投票解释权；给好人假金水可争取支持，给队友假金水可保护队友",
-      "adjustment": "避免与已知刀口、公开硬事实冲突；结果被推翻时评估调整或撤回",
+      "adjustment": "若可见查验或票型反驳说辞，转向能解释历史的备选；不能生成真查验。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "公开对跳与验人声明、争取对象和归票是否一致。"
+      ],
+      "responses": [
+        "真预言家用真实结果争取摇摆票；好人也可能试探假跳。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "S05"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "假预言家争取10号并说明下一次公开结果。",
+      "counterexample": "无回收窗口仍承诺下轮验人。"
     },
     {
       "id": "L02",
       "role": "狼人",
       "name": "冲锋",
       "guidance": "本方集中票加可争取票能影响结果时明确支持队友、推动好人出局",
-      "adjustment": "少狼不是禁用理由；队友方案明显失败时避免连带暴露",
+      "adjustment": "不能因一次正确投票认证好人；硬查验反证时退出该狼假设。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [],
@@ -1163,7 +2261,28 @@
       "excluded_flags": [],
       "boost_flags": [
         "critical_possible"
-      ]
+      ],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "支持真信息后是否推动错误目标或高代价分票。"
+      ],
+      "responses": [
+        "好人也可能正常站对边；真预言家会核对持续收益。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "V07"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "狼支持真预言家争取后续关键票。",
+      "counterexample": "已被真实查验为好人仍按倒钩认证狼。"
     },
     {
       "id": "L03",
@@ -1175,7 +2294,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 75,
       "required_rules": [],
@@ -1183,7 +2303,28 @@
       "excluded_flags": [],
       "boost_flags": [
         "has_public_speech"
-      ]
+      ],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L04",
@@ -1195,25 +2336,48 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L05",
       "role": "狼人",
       "name": "互踩与切割",
       "guidance": "适度制造分歧，或在队友难以保住时保留另一狼生存机会",
-      "adjustment": "不翻牌时卖狼未必有认证收益；两狼局失去队友的成本高",
+      "adjustment": "牺牲队友会损失狼数，按实际狼人数安排分工；白天不能即时私聊。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 70,
       "required_rules": [],
@@ -1221,7 +2385,28 @@
         "multiple_wolves"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "队友互相攻击但目标票与公开改策信号是否一致。"
+      ],
+      "responses": [
+        "好人可能识破形式切割，也可能跟进错目标。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "V07"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "四狼夜间约定主张、备选票与公开退出信号。",
+      "counterexample": "在投票收集中读取队友刚提交的票。"
     },
     {
       "id": "L06",
@@ -1233,13 +2418,35 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 100,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L07",
@@ -1256,7 +2463,30 @@
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "wolf_kill"
+      ],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L08",
@@ -1268,7 +2498,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 110,
       "required_rules": [],
@@ -1276,7 +2507,28 @@
         "critical_possible"
       ],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L09",
@@ -1289,13 +2541,35 @@
       "actions": [
         "speech",
         "vote",
-        "wolf_kill"
+        "wolf_kill",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "L10",
@@ -1314,14 +2588,35 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "GU01",
       "role": "守卫",
       "name": "预测刀口",
       "guidance": "根据狼队收益和公开信息预测；自己的守人计划不自动等于狼刀目标，预测落空后修正",
-      "adjustment": "结合新信息与实际规则修正。",
+      "adjustment": "连守限制或新线索改变时换目标；空守中断连守，守护不挡毒。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
@@ -1333,19 +2628,45 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "guard"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "公开信息核心、最后神民类的条件假设与上一夜本人目标。"
+      ],
+      "responses": [
+        "狼可能绕刀、空刀或自刀；女巫同救可能使保护失效。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "L07"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "最后平民可能被刀时比较守护与绕刀。",
+      "counterexample": "向他方读取实际刀口和女巫药量。"
     },
     {
       "id": "GU02",
       "role": "守卫",
       "name": "防护协调",
       "guidance": "有真实冲突规则和交流窗口时与女巫协调；不假定双方读到彼此私有决策",
-      "adjustment": "结合新信息与实际规则修正。",
+      "adjustment": "同守同救致死，且保护不抵消毒；资源未知保留有药和无药分支。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
-        "guard"
+        "guard",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [
@@ -1354,7 +2675,32 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "guard"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "合法可见用药声明和本局同守同救规则。"
+      ],
+      "responses": [
+        "女巫仍可在夜初窗口用药，狼可能绕刀。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "W05"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "守卫考虑女巫可能救同一信息核心。",
+      "counterexample": "把调用者无解药当作其他女巫也无药。"
     },
     {
       "id": "GU03",
@@ -1373,7 +2719,32 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "guard"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "GU04",
@@ -1385,7 +2756,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "guard"
+        "guard",
+        "last_words"
       ],
       "priority": 70,
       "required_rules": [
@@ -1393,19 +2765,45 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [
+        "guard"
+      ],
+      "related_windows": [
+        "wolf_kill"
+      ],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "ID01",
       "role": "白痴",
       "name": "保留票权",
       "guidance": "在可正常表水与投票时维护好人有效票；不以“我不怕出”主动制造无收益的放逐",
-      "adjustment": "结合新信息与实际规则修正。",
+      "adjustment": "翻牌后无票且不能再被放逐，仍计为存活神职；口头归票不计有效票。",
       "min_alive": 1,
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [
@@ -1413,7 +2811,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "真实白痴翻牌事件及公开失票、警徽变化。"
+      ],
+      "responses": [
+        "好人可以听其发言，狼人可能用夜刀/毒药屠神。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C10"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "翻牌白痴作为最后神职保护目标。",
+      "counterexample": "把失票当作神职已死亡。"
     },
     {
       "id": "ID02",
@@ -1425,7 +2844,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [
@@ -1433,7 +2853,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "ID03",
@@ -1445,7 +2886,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [
@@ -1453,7 +2895,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "ID04",
@@ -1465,7 +2928,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 80,
       "required_rules": [
@@ -1473,7 +2937,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WK01",
@@ -1486,7 +2971,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1494,7 +2980,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WK02",
@@ -1507,7 +3014,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1515,7 +3023,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WK03",
@@ -1528,7 +3057,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1536,7 +3066,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WK04",
@@ -1549,7 +3100,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1557,7 +3109,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WB01",
@@ -1570,7 +3143,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1578,7 +3152,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WB02",
@@ -1591,7 +3186,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1599,7 +3195,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WB03",
@@ -1612,7 +3229,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1620,7 +3238,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "WB04",
@@ -1633,7 +3272,8 @@
       "actions": [
         "speech",
         "vote",
-        "special"
+        "special",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1641,7 +3281,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "CU01",
@@ -1660,7 +3321,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "CU02",
@@ -1672,7 +3354,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1680,7 +3363,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "CU03",
@@ -1692,7 +3396,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1700,7 +3405,28 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
     },
     {
       "id": "CU04",
@@ -1712,7 +3438,8 @@
       "max_alive": null,
       "actions": [
         "speech",
-        "vote"
+        "vote",
+        "last_words"
       ],
       "priority": 90,
       "required_rules": [
@@ -1720,7 +3447,232 @@
       ],
       "required_flags": [],
       "excluded_flags": [],
-      "boost_flags": []
+      "boost_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "required_skills": [],
+      "related_windows": [],
+      "clues": [
+        "只核对公开原文、票型和真实技能事件；相似行为允许好人试探或误判解释。"
+      ],
+      "responses": [
+        "对方可能质疑依据、改变站边或采用非最优行动。"
+      ],
+      "failure_cost": "误判会分散有效票、消耗技能或暴露信息；需比较完整结算。",
+      "counters": [
+        "C02"
+      ],
+      "exit_conditions": [
+        "出现与假设冲突的真实票型、发言或技能事件时撤销或调整。"
+      ],
+      "example": "有可见依据且下一次合法窗口仍可兑现时使用。",
+      "counterexample": "只因语气或打法相似认证身份，或依赖不存在的回应窗口。"
+    },
+    {
+      "id": "C10",
+      "role": "*",
+      "name": "屠边关键类别",
+      "guidance": "保护最后平民或神职的条件分支；狼全灭优先，狼好人数相等本身不终局。",
+      "adjustment": "新身份揭示或减员改变神民范围时重算，不将声明当作真实类别。",
+      "min_alive": 0,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "wolf_kill",
+        "seer_check",
+        "witch_act",
+        "guard",
+        "hunter_shot",
+        "last_words",
+        "sheriff_run",
+        "sheriff_withdraw",
+        "sheriff_vote",
+        "sheriff_direction",
+        "badge",
+        "last_words",
+        "last_words",
+        "last_words"
+      ],
+      "priority": 170,
+      "required_rules": [
+        "edge_victory"
+      ],
+      "required_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "related_windows": [],
+      "required_skills": [],
+      "clues": [
+        "可见技能、票权、发言顺序和原始声明。"
+      ],
+      "responses": [
+        "对方可能改变站边、质疑前提或误判。"
+      ],
+      "failure_cost": "关键类别减员、票权损失或说服失败。",
+      "counters": [
+        "C04"
+      ],
+      "exit_conditions": [
+        "真实事件与预测冲突时修正。"
+      ],
+      "example": "规则与实际窗口支持时比较当前可兑现行动。",
+      "counterexample": "把条件假设当身份事实或依赖不存在的窗口。",
+      "victory_rules": [
+        "parity",
+        "edge"
+      ]
+    },
+    {
+      "id": "L11",
+      "role": "狼人",
+      "name": "自刀与银水解释",
+      "guidance": "合法自刀可影响银水印象；比较牺牲狼数、毒枪风险和后续争票，空刀也可能制造平安夜。",
+      "adjustment": "不保证女巫救人，不认证自己好人；对方可能保留自刀解释。",
+      "min_alive": 0,
+      "max_alive": null,
+      "actions": [
+        "wolf_kill",
+        "speech",
+        "vote"
+      ],
+      "priority": 125,
+      "required_rules": [
+        "wolf_friendly_fire"
+      ],
+      "required_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "related_windows": [],
+      "required_skills": [],
+      "clues": [
+        "可见技能、票权、发言顺序和原始声明。"
+      ],
+      "responses": [
+        "对方可能改变站边、质疑前提或误判。"
+      ],
+      "failure_cost": "关键类别减员、票权损失或说服失败。",
+      "counters": [
+        "C04"
+      ],
+      "exit_conditions": [
+        "真实事件与预测冲突时修正。"
+      ],
+      "example": "规则与实际窗口支持时比较当前可兑现行动。",
+      "counterexample": "把条件假设当身份事实或依赖不存在的窗口。",
+      "victory_rules": [
+        "parity",
+        "edge"
+      ]
+    },
+    {
+      "id": "SH01",
+      "role": "*",
+      "name": "警徽经营",
+      "guidance": "比较报名、退水和争取原警下票；当选后顺序末置、放逐1.5票，死亡可移交或撕徽。",
+      "adjustment": "退水者无新增选举票，白痴翻牌自动撕徽；预期支持者改票时调整争取对象。",
+      "min_alive": 0,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "sheriff_run",
+        "sheriff_withdraw",
+        "sheriff_vote",
+        "sheriff_direction",
+        "badge"
+      ],
+      "priority": 160,
+      "required_rules": [
+        "sheriff"
+      ],
+      "required_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "related_windows": [],
+      "required_skills": [],
+      "clues": [
+        "可见技能、票权、发言顺序和原始声明。"
+      ],
+      "responses": [
+        "对方可能改变站边、质疑前提或误判。"
+      ],
+      "failure_cost": "关键类别减员、票权损失或说服失败。",
+      "counters": [
+        "C04"
+      ],
+      "exit_conditions": [
+        "真实事件与预测冲突时修正。"
+      ],
+      "example": "规则与实际窗口支持时比较当前可兑现行动。",
+      "counterexample": "把条件假设当身份事实或依赖不存在的窗口。",
+      "victory_rules": [
+        "parity",
+        "edge"
+      ]
+    },
+    {
+      "id": "C11",
+      "role": "*",
+      "name": "最后回应与改策",
+      "guidance": "最多三名关键玩家、三种主要解释、三个本人候选行动；比较一次回应和一次调整。",
+      "adjustment": "已完成最后窗口者无法回答，未回答不是回避；新公开票型反驳预测时撤销假设。",
+      "min_alive": 0,
+      "max_alive": null,
+      "actions": [
+        "speech",
+        "vote",
+        "wolf_kill",
+        "seer_check",
+        "witch_act",
+        "guard",
+        "hunter_shot",
+        "last_words",
+        "sheriff_run",
+        "sheriff_withdraw",
+        "sheriff_vote",
+        "sheriff_direction",
+        "badge",
+        "last_words",
+        "last_words",
+        "last_words"
+      ],
+      "priority": 90,
+      "required_rules": [],
+      "required_flags": [],
+      "uses": [
+        "own",
+        "other"
+      ],
+      "related_windows": [],
+      "required_skills": [],
+      "clues": [
+        "可见技能、票权、发言顺序和原始声明。"
+      ],
+      "responses": [
+        "对方可能改变站边、质疑前提或误判。"
+      ],
+      "failure_cost": "关键类别减员、票权损失或说服失败。",
+      "counters": [
+        "C04"
+      ],
+      "exit_conditions": [
+        "真实事件与预测冲突时修正。"
+      ],
+      "example": "规则与实际窗口支持时比较当前可兑现行动。",
+      "counterexample": "把条件假设当身份事实或依赖不存在的窗口。",
+      "victory_rules": [
+        "parity",
+        "edge"
+      ]
     }
   ]
 }

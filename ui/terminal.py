@@ -20,7 +20,7 @@ from rich.text import Text
 
 from engine import events as ev
 from engine.events import Event, EventKind
-from engine.game import Game
+from engine.game import ActionWindow, Game, SpeechContext
 from engine.roles import ROLE_DESCRIPTION, Role, Team, team_of
 
 console = Console()
@@ -52,8 +52,7 @@ class TerminalUI:
                 f"[bold]{me.name}[/bold] · 座位 {me.seat + 1}\n\n"
                 f"角色：[bold red]{me.role.value}[/bold red]（{'狼人阵营' if team_of(me.role) is Team.WOLF else '好人阵营'}）\n"
                 f"{ROLE_DESCRIPTION[me.role]}\n\n"
-                "白天按座位首轮发言、简短回应，再统一投票并公开个人票型；夜晚狼人猎杀。\n"
-                "狼人全部出局 → 好人胜；狼人数量不少于好人 → 狼人胜。",
+                f"{game.board.rules_text()}",
                 title="🐺 你的角色卡",
                 border_style="red" if team_of(me.role) is Team.WOLF else "cyan",
             )
@@ -74,6 +73,12 @@ class TerminalUI:
         for p in game.players:
             status = "[green]存活[/green]" if p.alive else "[red]出局[/red]"
             mark = " ← 你" if p.seat == self.my_seat else ""
+            if p.seat == game.sheriff:
+                mark += " · 警长"
+            if p.revealed and p.role is Role.IDIOT:
+                mark += " · 白痴已翻牌"
+            if not p.can_vote:
+                status += " · 无投票权"
             table.add_row(str(p.seat + 1), p.name + mark, status)
         console.print(table)
 
@@ -115,6 +120,10 @@ class TerminalUI:
             for p in self.game.players if p.alive
         )
         console.print(f"[dim]存活：{alive}[/dim]")
+        console.print(f"[dim]{self.game.board.name} v{self.game.board.version} · 阶段：{ev.STAGE_LABELS.get(self.game.stage, self.game.stage)} · 警长：{self.game.sheriff + 1 if self.game.sheriff is not None else '无'}[/dim]")
+
+    def show_speech_context(self, context: SpeechContext) -> None:
+        console.print(f"[bold]当前发言：{ev.STAGE_LABELS.get(context.stage, context.stage)} · 第{context.round_number}轮 · 第{context.position}/{len(context.order)}位[/bold]")
 
     # ------------------------------------------------------------ 玩家输入（4.4）
 
@@ -150,11 +159,11 @@ class TerminalUI:
         return "\n".join(lines)
 
     def _ask_seat_choice(
-        self, candidates: list[int], question: str, allow_abstain: bool = False
+        self, candidates: list[int], question: str, allow_abstain: bool = False, *, empty_label: str = "弃票"
     ) -> int | None:
         """受限选项输入：仅接受合法座位号（0-based 输入显示），非法拒绝重输。"""
         opts = "、".join(f"{s + 1}" for s in candidates)
-        abstain = "（0 = 弃票）" if allow_abstain else ""
+        abstain = f"（0 = {empty_label}）" if allow_abstain else ""
         while True:
             raw = self._read_input(f"{question}[bold]（{opts}）{abstain}：[/bold]")
             if raw.isdigit():
@@ -167,7 +176,7 @@ class TerminalUI:
 
     def prompt_wolf_kill(
         self, killable: list[int], teammate_seats: list[int]
-    ) -> int | None:
+    ) -> int | str | None:
         """狼人刀口：由玩家确认，或委托 AI 队友决策（返回 None 表示委托）。
 
         teammate_seats 应只含存活队友；为空时不提供委托选项。
@@ -179,10 +188,13 @@ class TerminalUI:
             console.print(f"🔒 你的狼人队友：{mates}", style="magenta")
         console.print("可刀目标：" + "、".join(f"{s + 1} 号" for s in killable))
         delegate_hint = "，或输入 [bold]d[/bold] 委托队友决策" if teammate_seats else ""
+        empty_hint = "，输入 [bold]0[/bold] 空刀" if self.game.board.empty_kill else ""
         while True:
-            raw = self._read_input(f"输入刀口座位号{delegate_hint}：")
+            raw = self._read_input(f"输入刀口座位号{delegate_hint}{empty_hint}：")
             if raw.lower() == "d" and teammate_seats:
                 return None
+            if raw == "0" and self.game.board.empty_kill:
+                return "empty"
             if raw.isdigit() and (int(raw) - 1) in killable:
                 return int(raw) - 1
             console.print("[red]非法输入，请重输。[/red]")
@@ -191,15 +203,15 @@ class TerminalUI:
         return self._ask_seat_choice(checkable, "查验哪一位？")
 
     def prompt_witch_act(
-        self, kill_target: int, can_save: bool, can_poison: bool, alive_seats: list[int]
+        self, kill_target: int | None, can_save: bool, can_poison: bool, alive_seats: list[int]
     ) -> tuple[bool, int | None]:
         """女巫用药：展示刀口与药品状态，返回 (用解药, 毒杀目标或 None)。"""
         note = "—— 就是你自己！" if kill_target == self.my_seat else ""
         console.print(
-            f"🔒 今晚刀口：{kill_target + 1} 号 {note}", style="magenta"
+            f"🔒 今晚刀口：{str(kill_target + 1) + '号' if kill_target is not None else '无可见刀口（空刀或规则不提供）'} {note}", style="magenta"
         )
         console.print(
-            f"解药：{'✅ 还在' if can_save else '❌ 已用完'}；"
+            f"此窗口解药：{'✅ 可用' if can_save else '❌ 不可用（药量/刀口/自救限制）'}；"
             f"毒药：{'✅ 还在' if can_poison else '❌ 已用完'}（同一夜只能用一瓶）"
         )
         while True:
@@ -207,7 +219,7 @@ class TerminalUI:
             if action == "s" and can_save:
                 return True, None
             if action == "s":
-                console.print("[red]解药已用完。[/red]")
+                console.print("[red]此窗口不能使用解药。[/red]")
                 continue
             if action == "p" and can_poison:
                 target = self._ask_seat_choice(alive_seats, "毒杀哪一位？")
@@ -221,6 +233,25 @@ class TerminalUI:
 
     def prompt_vote(self, alive_seats: list[int]) -> int | None:
         return self._ask_seat_choice(alive_seats, "投票放逐谁？", allow_abstain=True)
+
+    def prompt_action(self, window: ActionWindow):
+        labels = {"guard": ("守护谁？", "空守"), "hunter_shot": ("开枪带走谁？", "弃枪"),
+                  "sheriff_vote": ("投给哪名警长候选？", "弃选举票"), "badge": ("警徽交给谁？", "撕徽")}
+        if window.action in labels:
+            question, empty = labels[window.action]
+            return self._ask_seat_choice(list(window.targets), question, window.allow_empty, empty_label=empty)
+        if window.action == "sheriff_direction":
+            while True:
+                raw = self._read_input("警长发言方向：1 顺时针 / 2 逆时针（你最后发言）：")
+                if raw in {"1", "2"}:
+                    return "clockwise" if raw == "1" else "counterclockwise"
+                console.print("[red]非法输入，请重输。[/red]")
+        question = "是否报名竞选警长" if window.action == "sheriff_run" else "是否退水（退水不增加选举票权）"
+        while True:
+            raw = self._read_input(question + "？y 是 / n 否：").lower()
+            if raw in {"y", "n"}:
+                return raw == "y"
+            console.print("[red]非法输入，请重输。[/red]")
 
     # ------------------------------------------------------------ AI 等待状态（4.5）
 
@@ -237,6 +268,7 @@ class TerminalUI:
     def show_game_over(self) -> None:
         game = self.game
         console.rule("[bold]终局")
+        console.print(f"{game.board.name} · {game.board.id} · v{game.board.version}")
         over = next(e for e in game.events if e.kind is EventKind.GAME_OVER)
         console.print(Panel(over.text, border_style="yellow"))
 
@@ -270,6 +302,13 @@ class TerminalUI:
                 EventKind.DEATH,
                 EventKind.PEACEFUL_NIGHT,
                 EventKind.EXILE,
+                EventKind.GUARD,
+                EventKind.HUNTER_SHOT,
+                EventKind.IDIOT_REVEAL,
+                EventKind.SHERIFF_ELECTED,
+                EventKind.SHERIFF_VOTES,
+                EventKind.SHERIFF_DIRECTION,
+                EventKind.BADGE,
             ):
                 phase = f"第{e.day}夜" if e.phase.value == "night" else f"第{e.day}天"
                 recap.add_row(phase, e.text)

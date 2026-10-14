@@ -261,7 +261,7 @@ def test_speech_context_follows_official_events_after_seat_five_dies():
         assert context.spoken == order[:i]
         assert context.remaining == order[i + 1:]
         assert context.names == tuple(enumerate(game.names))
-        assert set(vars(context)) == {"day", "speaker", "order", "position", "spoken", "remaining", "names", "round_number"}
+        assert set(vars(context)) == {"day", "speaker", "order", "position", "spoken", "remaining", "names", "round_number", "stage", "phase", "future_responders", "settled"}
 
 
 @pytest.mark.parametrize("scenario,expected", [

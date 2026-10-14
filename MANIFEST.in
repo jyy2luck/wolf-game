@@ -1,0 +1,2 @@
+include docs/ai-strategy-library-design.md
+recursive-include tests *.py

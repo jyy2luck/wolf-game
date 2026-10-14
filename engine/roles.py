@@ -1,7 +1,4 @@
-"""角色定义与 6 人局配置：角色枚举、阵营、技能说明、固定配置与技能时序。
-
-6 人局固定配置（无警长）：狼人 ×2、预言家 ×1、女巫 ×1、平民 ×2。
-"""
+"""执行角色、阵营/神民分类；保留原六人牌堆与时序兼容入口。"""
 
 from __future__ import annotations
 
@@ -16,6 +13,9 @@ class Role(str, enum.Enum):
     SEER = "预言家"
     WITCH = "女巫"
     VILLAGER = "平民"
+    HUNTER = "猎人"
+    IDIOT = "白痴"
+    GUARD = "守卫"
 
 
 class Team(str, enum.Enum):
@@ -30,13 +30,15 @@ ROLE_TEAM: dict[Role, Team] = {
     Role.SEER: Team.GOOD,
     Role.WITCH: Team.GOOD,
     Role.VILLAGER: Team.GOOD,
+    Role.HUNTER: Team.GOOD,
+    Role.IDIOT: Team.GOOD,
+    Role.GUARD: Team.GOOD,
 }
 
 # 角色技能说明（角色卡展示用）
 ROLE_DESCRIPTION: dict[Role, str] = {
     Role.WEREWOLF: (
-        "每晚与另一名狼人共同猎杀一名玩家。伪装好人、误导投票，"
-        "狼人数量不少于好人时获胜。切勿暴露队友与刀口。"
+        "每晚与存活狼队共同决定一个刀口。伪装好人、影响投票，按当局规则获胜。"
     ),
     Role.SEER: (
         "每晚查验一名玩家的阵营（狼人/好人）。合理跳身份带领好人放逐狼人，"
@@ -44,11 +46,14 @@ ROLE_DESCRIPTION: dict[Role, str] = {
     ),
     Role.WITCH: (
         "拥有一瓶解药与一瓶毒药，各限用一次且同一夜不得同时使用。"
-        "每晚得知刀口，可救刀口、毒一名玩家或不用药。"
+        "按板子规定获知刀口和自救资格，可救刀口、毒一名玩家或不用药。"
     ),
     Role.VILLAGER: (
         "没有夜间技能，靠白天听发言、找逻辑矛盾，投票放逐狼人。"
     ),
+    Role.HUNTER: "合法死亡后可开枪带走一名存活玩家或弃枪；中毒（包括混合死因）不能开枪。",
+    Role.IDIOT: "首次被放逐翻牌免死并永久失票，此后不能再被放逐；仍可发言、计为神职，可被夜刀或毒杀。",
+    Role.GUARD: "每夜可自守或空守，不能连续两夜守同一非空目标；守护只挡狼刀，同守同救致死，毒药不受保护。",
 }
 
 # 夜晚技能唤醒时序（引擎按此顺序结算）
@@ -69,9 +74,15 @@ def team_of(role: Role) -> Team:
     return ROLE_TEAM[role]
 
 
-def deal_roles(seats: int = 6, rng: random.Random | None = None) -> list[Role]:
-    """把 6 人局角色随机分配到座位。返回 index=座位号(0-based) 的角色列表。"""
+def is_god(role: Role) -> bool:
+    return team_of(role) is Team.GOOD and role is not Role.VILLAGER
+
+
+def deal_roles(seats: int | None = None, rng: random.Random | None = None, *, board=None) -> list[Role]:
+    """完整洗牌；不允许截断牌堆。默认兼容六人局。"""
     rng = rng or random.Random()
-    roles = list(SIX_PLAYER_SETUP)
+    roles = list(board.setup if board is not None else SIX_PLAYER_SETUP)
+    if seats is not None and seats != len(roles):
+        raise ValueError(f"玩家数 {seats} 与板子角色数 {len(roles)} 不一致")
     rng.shuffle(roles)
-    return roles[:seats] if seats <= len(roles) else roles
+    return roles

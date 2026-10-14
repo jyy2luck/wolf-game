@@ -14,12 +14,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from engine.events import Event, EventKind, visible_events
 from engine.roles import Role
+from engine.boards import Board, SIX_CLASSIC
 
 logger = logging.getLogger("llm_murder")
 
 Action = Literal[
     "speech", "vote", "wolf_kill", "seer_check", "witch_act",
     "hunter_shot", "guard", "link", "special", "last_words",
+    "sheriff_run", "sheriff_withdraw", "sheriff_vote", "sheriff_direction", "badge",
 ]
 MAX_CARDS = 8
 MAX_REFERENCE_CHARS = 4000
@@ -35,13 +37,22 @@ class RuleProfile:
     initial_wolves: int | None
     roles: frozenset[str]
     capabilities: frozenset[str]
+    victory: str = "parity"
+    role_counts: tuple[tuple[str, int], ...] = ()
+
+
+def rule_profile(board: Board) -> RuleProfile:
+    return RuleProfile(board.id + "-v" + board.version, board.player_count,
+                       dict(board.role_counts)[Role.WEREWOLF],
+                       frozenset(r.value for r, _ in board.role_counts), board.capabilities,
+                       board.victory, tuple((r.value, n) for r, n in board.role_counts))
 
 
 CURRENT_RULES = RuleProfile(
     name="six-player-v1",
     initial_players=6,
     initial_wolves=2,
-    roles=frozenset(role.value for role in Role),
+    roles=frozenset(role.value for role in SIX_CLASSIC.setup),
     capabilities=frozenset({
         "stable_two_team_parity", "stable_alignment_checks", "wolves_kill_only_good",
         "single_night_death_good", "no_other_night_protection", "no_death_counteraction", "witch_save",
@@ -56,6 +67,7 @@ class PopulationGuide(BaseModel):
     min_alive: int = Field(ge=0)
     max_alive: int | None = Field(default=None, ge=0)
     guidance: str = Field(min_length=1, max_length=1000)
+    victory_rules: frozenset[str] = frozenset({"parity"})
 
     @model_validator(mode="after")
     def valid_range(self):
@@ -78,11 +90,21 @@ class StrategyCard(PopulationGuide):
     required_flags: frozenset[str] = frozenset()
     excluded_flags: frozenset[str] = frozenset()
     boost_flags: frozenset[str] = frozenset()
+    uses: frozenset[Literal["own", "other"]] = frozenset({"own", "other"})
+    required_skills: frozenset[str] = frozenset()
+    related_windows: frozenset[Action] = frozenset()
+    clues: tuple[str, ...] = ()
+    responses: tuple[str, ...] = ()
+    failure_cost: str = ""
+    counters: tuple[str, ...] = ()
+    exit_conditions: tuple[str, ...] = ()
+    example: str = ""
+    counterexample: str = ""
 
 
 class StrategyLibrary(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    version: Literal[1]
+    version: Literal[1, 2]
     source: str
     roles: dict[str, tuple[PopulationGuide, ...]]
     cards: tuple[StrategyCard, ...]
@@ -107,6 +129,8 @@ class StrategyLibrary(BaseModel):
                 raise ValueError(f"{role}人数指导缺少开放上界")
         if any(card.role != "*" and card.role not in self.roles for card in self.cards):
             raise ValueError("策略引用未定义身份")
+        if any(set(card.counters) - set(identifiers) for card in self.cards):
+            raise ValueError("反制策略关联编号无效")
         return self
 
 
@@ -144,6 +168,9 @@ class Situation:
     flags: frozenset[str]
     settled: bool
     claims: tuple[str, ...] = ()
+    inference_complete: bool = True
+    villager_counts: tuple[int, ...] = ()
+    god_counts: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -157,16 +184,16 @@ class PublicClaim:
 # shortcut: 仅提取明确第一人称身份及查验句式，歧义仍交由模型读原文，新增句式时补成对用例。
 _CLAIM_TIME = r"(?:昨晚|昨夜|昨天|第\s*\d+\s*[夜天晚])"
 _CLAIM_START = r"(?:^|[，,。！？!?；;\n])\s*(?:" + _CLAIM_TIME + r"\s*)?"
-_ROLE_CLAIM = re.compile(_CLAIM_START + r"(?:我是|我跳|本人是)(预言家|女巫|平民|狼人)(?=$|[\s，,。！？!?；;])")
+_ROLE_CLAIM = re.compile(_CLAIM_START + r"(?:我是|我跳|本人是)(预言家|女巫|平民|狼人|猎人|白痴|守卫)(?=$|[\s，,。！？!?；;])")
 _CHECK_CLAIM = re.compile(
-    _CLAIM_START + r"(?P<speaker>我)?(?:" + _CLAIM_TIME + r"\s*)?(?:查验|验)(?:了|过)?\s*(?P<target>[1-6])\s*号"
+    _CLAIM_START + r"(?P<speaker>我)?(?:" + _CLAIM_TIME + r"\s*)?(?:查验|验)(?:了|过)?\s*(?P<target>[1-9]\d*)\s*号"
     r"\s*[，,：:]?\s*(?:是|为|结果是|结果为)?\s*(?P<result>狼人|好人|金水|查杀|狼)(?=$|[\s，,。！？!?；;])"
 )
 _QUOTED_CLAIM = re.compile(r'“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"')
-_CONDITIONAL_OR_REPORT = re.compile(r"如果|假如|假设|要是|倘若|(?:[1-6]\s*号|他|她|有人)(?:说|声称|表示)|转述|复述")
+_CONDITIONAL_OR_REPORT = re.compile(r"如果|假如|假设|要是|倘若|(?:[1-9]\d*\s*号|他|她|有人)(?:说|声称|表示)|转述|复述")
 
 
-def public_claims(view: list[Event]) -> tuple[PublicClaim, ...]:
+def public_claims(view: list[Event], seats: set[int] | None = None) -> tuple[PublicClaim, ...]:
     claims = []
     declared_roles = {}
     for event in view:
@@ -180,20 +207,76 @@ def public_claims(view: list[Event]) -> tuple[PublicClaim, ...]:
                 claims.append(PublicClaim(event, match[1]))
                 declared_roles[event.seat] = match[1]
             for match in _CHECK_CLAIM.finditer(sentence):
-                if match["speaker"] or declared_roles.get(event.seat) == "预言家":
+                if (match["speaker"] or declared_roles.get(event.seat) == "预言家") and (seats is None or int(match["target"]) - 1 in seats):
                     claims.append(PublicClaim(event, "预言家", int(match["target"]) - 1,
                                               match["result"] in {"狼", "狼人", "查杀"}))
     return tuple(claims)
 
 
+MAX_INFERENCE_BRANCHES = 5000
+
+
+def _infer_counts(rules, alive, good, wolves, known_roles, settled):
+    """只遍历狼座位组合，神民用容量区间检查；不枚举身份/私有经历。"""
+    all_seats = set(range(rules.initial_players))
+    initial_wolves = rules.initial_wolves
+    if initial_wolves is None:
+        lower = max(len(wolves & alive), 1 if settled else 0)
+        upper = len(alive - good)
+        if rules.victory == "parity" and settled:
+            upper = min(upper, (len(alive) - 1) // 2)
+        return tuple(range(lower, upper + 1)), (), (), set(), set(), True
+    total_roles = dict(rules.role_counts)
+    if total_roles and any(sum(r == value for r in known_roles.values()) > number
+                           for value, number in total_roles.items()):
+        return (), (), (), set(), set(), True
+    remaining = initial_wolves - len(wolves)
+    unknown = sorted(all_seats - good - wolves)
+    if remaining < 0 or remaining > len(unknown):
+        return (), (), (), set(), set(), True
+    union, intersection, counts, villager_counts, god_counts = set(), None, set(), set(), set()
+    village_total = total_roles.get("平民")
+    forced_village = {s for s, r in known_roles.items() if r == "平民"}
+    forced_god = {s for s, r in known_roles.items() if r not in WOLF_ROLES and r != "平民"}
+    for i, group in enumerate(combinations(unknown, remaining)):
+        if i >= MAX_INFERENCE_BRANCHES:
+            # 截断交集绝不能用于身份认证，也不呈现不完备计数为精确范围。
+            return (), (), (), set(), set(), False
+        branch = wolves | set(group)
+        w = len(branch & alive)
+        if settled and (w == 0 or (rules.victory == "parity" and w * 2 >= len(alive))):
+            continue
+        living_good = alive - branch
+        vg_range = ()
+        if village_total is not None:
+            if branch & (forced_village | forced_god):
+                continue
+            other_good = all_seats - branch
+            v_min = max(len(forced_village & alive), village_total - len(other_good - alive - forced_god))
+            v_max = min(len(living_good - forced_god), village_total - len(forced_village - alive))
+            if settled and rules.victory == "edge":
+                v_min, v_max = max(1, v_min), min(len(living_good) - 1, v_max)
+            if v_min > v_max:
+                continue
+            vg_range = range(v_min, v_max + 1)
+        counts.add(w)
+        villager_counts.update(vg_range)
+        god_counts.update(len(living_good) - v for v in vg_range)
+        union.update(branch)
+        intersection = branch.copy() if intersection is None else intersection & branch
+    return (tuple(sorted(counts)), tuple(sorted(villager_counts)), tuple(sorted(god_counts)),
+            all_seats - union if intersection is not None else set(), intersection or set(), True)
+
+
 def build_situation(
     *, role: Role | str, seat: int, action: Action, view: list[Event], day: int,
-    alive_seats: list[int], rules: RuleProfile = CURRENT_RULES,
+    alive_seats: list[int], rules: RuleProfile | None = None, board: Board | None = None,
     teammate_seats: list[int] | None = None, kill_target: int | None = None,
     can_save: bool | None = None, can_poison: bool | None = None,
     settled: bool = True,
 ) -> Situation:
     """settled 表示当前人数已经经过一次完整判胜，而非待枪等过渡人数。"""
+    rules = rules or rule_profile(board or SIX_CLASSIC)
     role_name = role.value if isinstance(role, Role) else role
     alive = frozenset(alive_seats)
     # 调用者本应已过滤；再次过滤，防止直接调用误传其他人的私有事件。
@@ -203,10 +286,12 @@ def build_situation(
     flags: set[str] = set()
     caps = rules.capabilities
     fixed_parity = "stable_two_team_parity" in caps
+    two_team = fixed_parity or "edge_victory" in caps
+    known_roles = {seat: role_name} if role_name in rules.roles else {}
     if settled:
         flags.add("settled")
     is_wolf = role_name in WOLF_ROLES
-    if fixed_parity and role_name in rules.roles:
+    if two_team and role_name in rules.roles:
         (wolves if is_wolf else good).add(seat)
     if is_wolf:
         if teammate_seats is not None:
@@ -214,15 +299,16 @@ def build_situation(
         for event in own_view:
             if event.kind is EventKind.WOLF_REVEAL:
                 wolves.update(event.viewers)
-        if fixed_parity and rules.initial_wolves is not None and len(wolves) == rules.initial_wolves:
+        if two_team and rules.initial_wolves is not None and len(wolves) == rules.initial_wolves:
             good.update(set(range(rules.initial_players)) - wolves)
     for event in own_view:
         if event.kind is EventKind.SPEECH and event.public:
             flags.add("has_public_speech")
-        if fixed_parity and event.public and event.kind is EventKind.ROLE_ASSIGNED:
+        if two_team and event.public and event.kind in {EventKind.ROLE_ASSIGNED, EventKind.HUNTER_SHOT, EventKind.IDIOT_REVEAL}:
             confirmed_role = event.extra.get("role")
             if confirmed_role in rules.roles:
                 (wolves if confirmed_role in WOLF_ROLES else good).add(event.seat)
+                known_roles[event.seat] = confirmed_role
         if (event.kind is EventKind.SEER_CHECK and role_name == "预言家"
                 and seat in event.viewers and "stable_alignment_checks" in caps):
             target = event.extra.get("target")
@@ -261,51 +347,43 @@ def build_situation(
             flags.add("antidote_available" if can_save else "antidote_unavailable")
         if can_poison is True:
             flags.add("poison_available")
-    if day == 1 and action in {"wolf_kill", "seer_check", "witch_act"}:
+    if day == 1 and action in {"wolf_kill", "seer_check", "witch_act", "guard"}:
         flags.add("first_night")
     if len(alive) <= 4:
         flags.add("small_population")
     if len(wolves & alive) >= 2:
         flags.add("multiple_wolves")
 
-    counts: tuple[int, ...] = ()
     all_seats = set(range(rules.initial_players))
-    consistent = (bool(alive) and seat in alive and alive <= all_seats
-                  and not good & wolves and (good | wolves) <= all_seats)
-    if fixed_parity and consistent:
-        dead = all_seats - alive
-        lower = max(len(wolves & alive), 1 if settled else 0)
-        upper = len(alive - good)
-        if rules.initial_wolves is not None:
-            lower = max(lower, rules.initial_wolves - len(dead - good))
-            upper = min(upper, rules.initial_wolves - len(wolves & dead))
-        if settled:
-            upper = min(upper, (len(alive) - 1) // 2)
-        counts = tuple(range(lower, upper + 1))
-        if counts and rules.initial_wolves is not None:
-            unknown = all_seats - good - wolves
-            remaining = rules.initial_wolves - len(wolves)
-            candidates = [wolves | set(group) for group in combinations(sorted(unknown), remaining)
-                          if len((wolves | set(group)) & alive) in counts]
-            if candidates:
-                wolves.update(set.intersection(*candidates))
-                good.update(all_seats - set.union(*candidates))
-            else:
-                counts = ()
-        if counts:
-            # 只描述普通成功刀一名好人的条件分支；不把其他资源未知写成已无保护。
+    consistent = (bool(alive) and (seat in alive or action in {"hunter_shot", "last_words", "badge"})
+                  and alive <= all_seats and not good & wolves and (good | wolves) <= all_seats)
+    counts, villagers, gods, complete = (), (), (), True
+    if two_team and consistent:
+        counts, villagers, gods, inferred_good, inferred_wolves, complete = _infer_counts(
+            rules, alive, good, wolves, known_roles, settled)
+        if complete and counts:
+            good.update(inferred_good)
+            wolves.update(inferred_wolves)
+        elif complete and not counts:
+            # 矛盾输入不产生认证结论。
+            good, wolves = set(), set()
+            flags.add("contradictory_facts")
+        if fixed_parity and settled and counts:
             dangers = [2 * count >= len(alive) - 1 for count in counts]
-            if any(dangers):
-                flags.add("critical_possible")
-            if all(dangers):
-                flags.add("critical_certain")
+            if any(dangers): flags.add("critical_possible")
+            if all(dangers): flags.add("critical_certain")
     if not consistent:
-        disputed = good & wolves
-        good = (good - disputed) & all_seats
-        wolves = (wolves - disputed) & all_seats
+        good, wolves = set(), set()
+        flags.add("contradictory_facts")
+    if "edge_victory" in caps:
+        flags.add("edge_victory")
+    if any(e.public and e.kind is EventKind.IDIOT_REVEAL for e in own_view):
+        flags.add("idiot_revealed")
+    if any(e.public and e.kind is EventKind.SHERIFF_ELECTED and e.seat is not None for e in own_view):
+        flags.add("sheriff_active")
     if len(wolves & alive) >= 2:
         flags.add("multiple_wolves")
-    claims = public_claims(own_view)
+    claims = public_claims(own_view, all_seats)
     latest_roles = {claim.event.seat: claim.role for claim in claims}
     seer_claimants = {author for author, claimed_role in latest_roles.items()
                      if claimed_role == "预言家" and author in alive}
@@ -325,20 +403,20 @@ def build_situation(
         for c in claims
     )
     return Situation(role_name, action, alive, frozenset(good), frozenset(wolves),
-                     counts, frozenset(flags), settled, descriptions)
+                     counts, frozenset(flags), settled, descriptions, complete, villagers, gods)
 
 
 def select_strategy_cards(
     library: StrategyLibrary, situation: Situation, rules: RuleProfile,
 ) -> tuple[StrategyCard, ...]:
-    if situation.role not in rules.roles:
-        eligible_roles = {"*"}
-    else:
-        eligible_roles = {"*", situation.role}
-        if situation.role in WOLF_ROLES:
-            eligible_roles.add("狼人")
+    skills = {"狼人": "wolf_kill", "预言家": "seer_check", "女巫": "witch_act",
+              "猎人": "hunter_shot", "守卫": "guard"}
+    own_skills = {skills[situation.role]} if situation.role in skills else set()
+    if "sheriff" in rules.capabilities:
+        own_skills.add("sheriff")  # 身份资格仍以当前引擎窗口为准。
     candidates = [card for card in library.cards
-                  if card.role in eligible_roles and situation.action in card.actions
+                  if (card.role == "*" or card.role in rules.roles) and "own" in card.uses
+                  and card.required_skills <= own_skills and situation.action in card.actions
                   and card.matches(len(situation.alive))
                   and card.required_rules <= rules.capabilities
                   and card.required_flags <= situation.flags
@@ -346,9 +424,31 @@ def select_strategy_cards(
     foundation = [card for card in candidates if card.id in {"C01", "C05"}]
     remaining = [card for card in candidates if card.id not in {"C01", "C05"}]
     remaining.sort(key=lambda card: (
-        -(card.priority + 40 * len(card.boost_flags & situation.flags)), card.id,
+        -(card.priority + 40 * len(card.boost_flags & situation.flags)
+          + (25 if card.role == situation.role else 0)), card.id,
     ))
-    return tuple((foundation + remaining)[:MAX_CARDS])
+    return tuple((foundation + remaining)[:5])
+
+
+def select_other_cards(library, situation, rules):
+    # 他方药量/查验未知；不把调用者的资源或真实查验赋给他方。
+    flags = set(situation.flags) - {"has_check", "has_wolf_check", "has_good_check", "has_knife",
+                                 "knife_is_self", "antidote_available", "antidote_unavailable", "poison_available"}
+    flags.update({"antidote_available", "poison_available", "has_knife"})
+    rows = [c for c in library.cards if c.role in rules.roles and "other" in c.uses
+            and c.role != situation.role and (situation.action in c.actions or situation.action in c.related_windows)
+            and c.matches(len(situation.alive)) and c.required_rules <= rules.capabilities
+            and c.required_flags <= flags and not c.excluded_flags & flags]
+    rows.sort(key=lambda c: (-(c.priority + 40 * len(c.boost_flags & flags)), c.id))
+    # 为相关技能各保留空间，防止一种身份占满回应参考。
+    chosen, roles = [], set()
+    for card in rows:
+        if card.role not in roles:
+            chosen.append(card)
+            roles.add(card.role)
+        if len(chosen) == 3:
+            break
+    return tuple(chosen)
 
 
 def _seat_labels(seats: frozenset[int]) -> str:
@@ -367,6 +467,10 @@ def _situation_text(situation: Situation) -> str:
             lines.append(f"{qualifier}中，再净减员一名好人会到人数胜利线；技能与防护分支仍需单独比较。")
     else:
         lines.append("当前资料或规则不足以确定普通人数局的狼数候选；保留未知，按真实结算规则判断。")
+    if not situation.inference_complete:
+        lines.append("计算达到上限，推断非完备；截断分支的交集不能认证任何身份或资源。")
+    if "edge_victory" in situation.flags:
+        lines.append(f"屠边继续游戏约束：存活平民候选{list(situation.villager_counts)}，神职候选{list(situation.god_counts)}；未知身份不强行归类，狼好人数相等不代表终局。")
     for label, values in (("好人", situation.known_good), ("狼人", situation.known_wolves)):
         living = values & situation.alive
         if living:
@@ -386,15 +490,17 @@ class StrategyAdvice:
     situation: Situation
     cards: tuple[StrategyCard, ...]
     text: str
+    other_cards: tuple[StrategyCard, ...] = ()
 
 
 def get_strategy_advice(
     *, role: Role | str, seat: int, action: Action, view: list[Event], day: int,
-    alive_seats: list[int], rules: RuleProfile = CURRENT_RULES,
+    alive_seats: list[int], rules: RuleProfile | None = None, board: Board | None = None,
     teammate_seats: list[int] | None = None, kill_target: int | None = None,
     can_save: bool | None = None, can_poison: bool | None = None,
     settled: bool = True,
 ) -> StrategyAdvice:
+    rules = rules or rule_profile(board or SIX_CLASSIC)
     situation = build_situation(
         role=role, seat=seat, action=action, view=view, day=day, alive_seats=alive_seats,
         rules=rules, teammate_seats=teammate_seats, kill_target=kill_target,
@@ -415,14 +521,25 @@ def get_strategy_advice(
         return StrategyAdvice(situation, (), text[:MAX_REFERENCE_CHARS])
     guides = library.roles.get(situation.role, ()) if situation.role in rules.roles else ()
     guide = next((row for row in guides if row.matches(len(situation.alive))), None)
-    if guide is not None and "stable_two_team_parity" in rules.capabilities and settled:
+    if (guide is not None and rules.victory in guide.victory_rules and settled
+            and (rules.victory != "parity" or "stable_two_team_parity" in rules.capabilities)):
         text += f"\n该身份在当前人数下的参考：{guide.guidance}"
     else:
         text += "\n按当局胜利条件、实际票权、资源和完整技能结算选择；不直接套用普通人数残局表。"
     included: list[StrategyCard] = []
+    text += "\n共同依据与本人候选方法（跨角色表达可借用，真实技能权限不变）："
     for card in select_strategy_cards(library, situation, rules):
-        line = f"\n[{card.id}] {card.name}：{card.guidance} 调整/退出：{card.adjustment}"
-        if len(text) + len(line) <= MAX_REFERENCE_CHARS:
+        line = (f"\n[{card.id}] {card.name}：{card.guidance} 调整/退出：{card.adjustment}"
+                f" 线索：{'；'.join(card.clues)} 失败代价：{card.failure_cost}")
+        if len(text) + len(line) <= MAX_REFERENCE_CHARS - 1100:
             text += line
             included.append(card)
-    return StrategyAdvice(situation, tuple(included), text)
+    others = []
+    text += "\n他方可能打法与可用应对（角色、私有结果和资源均为条件假设，不是认证）："
+    for card in select_other_cards(library, situation, rules):
+        line = (f"\n[{card.id}] 假设他方为{card.role}且资源可用：{card.name}。{card.guidance}"
+                f" 可能回应：{'；'.join(card.responses)} 反制/退出：{card.adjustment}")
+        if len(text) + len(line) <= MAX_REFERENCE_CHARS:
+            text += line
+            others.append(card)
+    return StrategyAdvice(situation, tuple(included), text, tuple(others))
