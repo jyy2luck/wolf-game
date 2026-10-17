@@ -13,6 +13,7 @@ import json
 import logging
 import random
 import re
+import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -23,7 +24,8 @@ from engine.events import Event, EventKind
 from engine.game import ActionWindow, SpeechContext
 from engine.boards import Board, SIX_CLASSIC
 from engine.roles import Role
-from llm.client import OutputTruncatedError
+from llm.client import OutputTruncatedError, RequestError
+from llm.context import estimate_tokens, fit_context, recall_message, render_memory
 from llm.grounding import SpeechReference, speech_index, validate_speech_facts
 from llm.strategies import get_strategy_advice, public_dead_seats
 
@@ -169,7 +171,7 @@ def parse_pack(
         loc = ".".join(str(p) for p in first.get("loc", ())) or "未知字段"
         return (
             None,
-            f"字段校验失败：{loc} {first['msg']}（收到键：{list(obj.keys())}）",
+            f"字段校验失败：{loc} {first['msg']}",
         )
 
 
@@ -235,27 +237,6 @@ def render_private_strategy(strategy: PrivateStrategy | None, view: list[Event] 
            + "\n".join(e.text for e in (view or []) if e.public)[-1400:]
            if strategy is not None and (strategy.prediction or strategy.switch_condition) else "")
     )
-
-
-def render_memory(view: Iterable[Event]) -> str:
-    """逐条渲染整局可见事件，时间及来源不依赖玩家自由文本。"""
-    lines = []
-    for event in view:
-        phase = "夜晚" if event.phase.value == "night" else "白天"
-        if event.public and event.kind is EventKind.SPEECH:
-            source = "玩家声明"
-            text = (
-                f"[#{event.speech_index}] {slabel(event.seat)} "
-                f"{event.extra['name']}：{event.extra['content']}"
-                + ("（第2轮回应）" if event.extra.get("round_number", 1) == 2 else "")
-                + (f"（阶段：{event.extra['stage']}）" if event.extra.get("stage") not in {None, "speech", "reply"} else "")
-            )
-        else:
-            source = ("狼队共享策略（主观计划，可调整）" if event.kind is EventKind.WOLF_PLAN
-                      else "系统公开事实" if event.public else "角色私有事实")
-            text = event.text
-        lines.append(f"- 第 {event.day} 天 · {phase} · {source}：{text}")
-    return "\n".join(lines) or "（尚无任何记忆）"
 
 
 def render_speech_progress(view: list[Event], day: int, context: SpeechContext | None) -> str:
@@ -740,7 +721,7 @@ class AIPlayer:
                 return "缺少 target；合法空动作也应明确填写0"
             return self._alive_target_error(pack.target, list(window.targets), allow_zero=window.allow_empty)
         pack, _ = call_structured(self.client, messages, WindowPack, validate=validate,
-                                 mock_reply=lambda: json.dumps(example), temperature=0.3)
+                                 mock_reply=lambda: json.dumps(example), temperature=0.3, view=private_view)
         if pack is None:
             return False if boolean else "clockwise" if direction else None
         self._commit_strategy(pack.private_strategy)
@@ -812,7 +793,7 @@ class AIPlayer:
             self.client, build_speech_prompt(**kwargs), SpeechPack,
             # 客户端可流式收集，原始 delta 不能传给公开回调。
             stream=True, validate=validate,
-            mock_reply=speech_mock,
+            mock_reply=speech_mock, view=view,
         )
         if pack is None:
             logger.warning("AI「%s」发言降级（输出不可用）：%s", self.name, err)
@@ -852,7 +833,7 @@ class AIPlayer:
             ),
             VotePack,
             validate=validate, temperature=0.3,
-            mock_reply=vote_mock,
+            mock_reply=vote_mock, view=view,
         )
         target: int | None = (
             pack.vote - 1 if pack is not None and pack.vote > 0 else None
@@ -887,7 +868,7 @@ class AIPlayer:
             ),
             WolfPack,
             validate=validate, temperature=0.3,
-            mock_reply=lambda: json.dumps({"target": killable[0] + 1}),
+            mock_reply=lambda: json.dumps({"target": killable[0] + 1}), view=view,
         )
         if pack is None:
             logger.warning("狼窝决策降级为刀首名好人：%s", err)
@@ -914,7 +895,7 @@ class AIPlayer:
             ),
             TargetPack,
             validate=validate, temperature=0.3,
-            mock_reply=lambda: json.dumps({"target": checkable[0] + 1}),
+            mock_reply=lambda: json.dumps({"target": checkable[0] + 1}), view=view,
         )
         if pack is None:
             logger.warning("预言家决策降级为查验首位：%s", err)
@@ -959,7 +940,7 @@ class AIPlayer:
             ),
             WitchPack,
             validate=validate, temperature=0.3,
-            mock_reply=lambda: json.dumps({"save": False, "poison": 0}),
+            mock_reply=lambda: json.dumps({"save": False, "poison": 0}), view=view,
         )
         if pack is None:
             logger.warning("女巫决策降级为不用药：%s", err)
@@ -984,6 +965,7 @@ def call_structured(
     validate: Callable[[BaseModel], str | ValidationIssue | None] | None = None,
     mock_reply: Callable[[], str] | None = None,
     temperature: float = 0.8,
+    view: list[Event] | None = None,
 ) -> tuple[BaseModel | None, str | None]:
     """最多重试 2 次：格式/业务错误反馈给模型，截断则在上限内扩大预算。
 
@@ -996,13 +978,29 @@ def call_structured(
     budget = getattr(client, "output_budget", getattr(config, "max_tokens", DEFAULT_MAX_TOKENS))
     budget_limit = getattr(config, "max_tokens_limit", DEFAULT_MAX_TOKENS_LIMIT)
     usage = getattr(client, "usage", None)
+    mark_response = getattr(client, "mark_response", lambda _: None)
+    deadline = time.monotonic() + getattr(config, "action_timeout_seconds", 90.0)
+    input_limit = getattr(config, "max_input_tokens", 12000)
+    recalled = False
+    max_retries = min(max_retries, 2)
     for attempt in range(max_retries + 1):
         if attempt and usage is not None:
             usage.structured_retries += 1
         try:
+            if time.monotonic() >= deadline:
+                raise RequestError("action_timeout")
+            window = getattr(config, "context_window_tokens", None)
+            limit = min(input_limit, window-budget-512) if window is not None else input_limit
+            fitted = fit_context(convo, view or [], limit, getattr(client, "token_scale", 1.0))
+            if fitted != convo and usage is not None:
+                usage.context_compactions += 1
+                logger.info("上下文压缩：估算 %d → %d tokens，输入预算=%d，输出预留=%d",
+                    estimate_tokens(convo, getattr(client, "token_scale", 1.0)),
+                    estimate_tokens(fitted, getattr(client, "token_scale", 1.0)), limit, budget)
             text = client.chat(
-                convo, stream=stream, on_delta=on_delta,
-                max_tokens=budget, mock_reply=mock_reply, temperature=temperature,
+                fitted, stream=stream, on_delta=on_delta,
+                max_tokens=budget, mock_reply=mock_reply, temperature=temperature, deadline=deadline,
+                input_limit=limit,
             )
         except OutputTruncatedError as exc:
             last_err = str(exc)
@@ -1014,17 +1012,50 @@ def call_structured(
             budget = next_budget
             # 截断不是格式错误，不将半截 JSON 放回对话。
             continue
+        except RequestError as exc:
+            last_err = str(exc)
+            if attempt == max_retries:
+                break
+            if exc.category == "input_context":
+                # 按实际被拒的请求缩减，不对同一份过长输入盲目重试。
+                input_limit = min(input_limit, int(estimate_tokens(fitted, getattr(client, "token_scale", 1.0)) * 0.7))
+                continue
+            if exc.retryable:
+                try:
+                    client.pause(2**attempt, deadline)
+                except RequestError as timeout:
+                    last_err = str(timeout)
+                    break
+                continue
+            break
         except RuntimeError as exc:
-            # 客户端的网络重试已耗尽，该行动交给调用方安全降级。
-            if usage is not None:
-                usage.fallback_actions += 1
-            return None, str(exc)
+            last_err = f"生成失败：{type(exc).__name__}"
+            break
+        requested, _ = extract_json_block(text)
+        if isinstance(requested, dict) and "recall" in requested:
+            mark_response("recall")
+            try:
+                if recalled:
+                    raise ValueError("每行动只能回查一次，请直接输出行动 JSON")
+                recalled = True
+                result = recall_message(requested["recall"], view or [])
+                if usage is not None:
+                    usage.recalls += 1
+            except ValueError as exc:
+                result = str(exc) + "；请按已有依据直接输出行动 JSON。"
+            convo = convo + [{"role": "assistant", "content": text[:1000]}, {"role": "user", "content": result}]
+            last_err = "原文回查后未取得合法行动"
+            continue
         pack, err = parse_pack(text, model_cls)
         if pack is not None and validate is not None:
             err = validate(pack)
         if pack is not None and err is None:
+            mark_response("accepted")
             return pack, None
+        if usage is not None:
+            usage.validation_errors += 1
         issue = err if isinstance(err, ValidationIssue) else None
+        mark_response(f"{issue.kind}_error" if issue is not None else "format_or_target_error")
         last_err = issue.reason if issue is not None else err or "未知错误"
         logger.warning(
             "结构化输出%s失败（第 %d 次）：%s",
@@ -1032,7 +1063,7 @@ def call_structured(
             attempt + 1, last_err,
         )
         convo = convo + [
-            {"role": "assistant", "content": text},
+            {"role": "assistant", "content": text[:2400]},
             {
                 "role": "user",
                 "content": (

@@ -48,3 +48,40 @@ def test_invalid_generation_options_fail_when_loading(tmp_path, monkeypatch, opt
     monkeypatch.setattr(config, "CONFIG_PATH", path)
     with pytest.raises(ValueError):
         config.load_config()
+
+
+@pytest.mark.parametrize('options', [
+    {'max_input_tokens': 0}, {'max_input_tokens': True},
+    {'context_window_tokens': 4500}, {'context_window_tokens': True},
+    {'action_timeout_seconds': 0}, {'action_timeout_seconds': True},
+    {'action_timeout_seconds': float('nan')}, {'action_timeout_seconds': float('inf')},
+])
+def test_invalid_action_budgets(options):
+    with pytest.raises(ValueError):
+        LLMConfig('https://x', 'test', 'm', **options)
+
+
+def test_action_budgets_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, 'CONFIG_DIR', tmp_path)
+    monkeypatch.setattr(config, 'CONFIG_PATH', tmp_path/'config.json')
+    expected = LLMConfig('https://x', 'test', 'm', max_input_tokens=9000,
+                         context_window_tokens=32000, action_timeout_seconds=45)
+    config.save_config(expected)
+    assert config.load_config() == expected
+
+
+@pytest.mark.parametrize('endpoint,thinking,disabled', [
+    ('https://api.deepseek.com/v1',None,True),
+    ('https://api.deepseek.com/v1','enabled',True),
+    ('https://x/v1','enabled',True),
+    ('https://x/v1',None,False),
+])
+def test_connectivity_check_never_enables_thinking(monkeypatch,endpoint,thinking,disabled):
+    from types import SimpleNamespace
+    requests=[]
+    sdk=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kw:requests.append(kw))))
+    monkeypatch.setattr(config,'OpenAI',lambda **kw:sdk)
+    assert config.verify_config(LLMConfig(endpoint,'test','m',thinking=thinking)) is None
+    assert ('extra_body' in requests[0]) == disabled
+    if disabled:
+        assert requests[0]['extra_body']=={'thinking':{'type':'disabled'}}

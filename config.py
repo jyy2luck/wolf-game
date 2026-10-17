@@ -11,10 +11,12 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
 from openai import OpenAI
 from rich.console import Console
@@ -43,9 +45,12 @@ class LLMConfig:
     max_tokens_limit: int = DEFAULT_MAX_TOKENS_LIMIT
     thinking: Literal["enabled", "disabled"] | None = None
     json_mode: bool | None = None
+    max_input_tokens: int = 12000
+    context_window_tokens: int | None = None
+    action_timeout_seconds: float = 90.0
 
     def __post_init__(self) -> None:
-        for name in ("max_tokens", "max_tokens_limit"):
+        for name in ("max_tokens", "max_tokens_limit", "max_input_tokens"):
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
                 raise ValueError(f"{name} 必须是正整数")
@@ -55,6 +60,12 @@ class LLMConfig:
             raise ValueError("thinking 必须是 enabled、disabled 或 null")
         if self.json_mode is not None and type(self.json_mode) is not bool:
             raise ValueError("json_mode 必须是 true、false 或 null")
+        if self.context_window_tokens is not None:
+            if type(self.context_window_tokens) is not int or self.context_window_tokens <= self.max_tokens + 512:
+                raise ValueError("context_window_tokens 必须是大于初始输出预算加 512 的整数")
+        if (type(self.action_timeout_seconds) not in (int, float)
+                or not math.isfinite(self.action_timeout_seconds) or self.action_timeout_seconds <= 0):
+            raise ValueError("action_timeout_seconds 必须是有限正数")
 
 
 # ---------------------------------------------------------------- 加载与保存
@@ -74,6 +85,9 @@ def load_config() -> LLMConfig | None:
         max_tokens_limit=data.get("max_tokens_limit", DEFAULT_MAX_TOKENS_LIMIT),
         thinking=data.get("thinking"),
         json_mode=data.get("json_mode"),
+        max_input_tokens=data.get("max_input_tokens", 12000),
+        context_window_tokens=data.get("context_window_tokens"),
+        action_timeout_seconds=data.get("action_timeout_seconds", 90.0),
     )
 
 
@@ -105,6 +119,8 @@ def verify_config(config: LLMConfig, timeout: float = 15.0) -> str | None:
             model=config.model,
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=1,
+            **({"extra_body": {"thinking": {"type": "disabled"}}}
+               if config.thinking is not None or urlparse(config.base_url).hostname == "api.deepseek.com" else {}),
         )
         return None
     except KeyboardInterrupt:

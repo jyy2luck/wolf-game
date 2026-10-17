@@ -10,14 +10,18 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager, ExitStack
 from dataclasses import asdict
+from datetime import datetime
 import json
 import logging
 from pathlib import Path
 import random
 import sys
+import tempfile
+import traceback
 
-from config import LLMConfig, ensure_config
+from config import CONFIG_DIR, LLMConfig, ensure_config
 from engine.game import ActionWindow, DecisionHooks, Game, SpeechContext
 from engine.boards import BOARDS, get_board
 from engine import events as ev
@@ -27,6 +31,78 @@ from llm.client import LLMClient
 from ui.terminal import TerminalUI
 
 logger = logging.getLogger("llm_murder")
+
+
+class _RunLog(logging.StreamHandler):
+    """本次运行的文件日志；磁盘故障只提示一次，不打断游戏。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stream = None
+        self.path = None
+        self.failed = False
+        self._warned = False
+        self.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        try:
+            CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+            directory = CONFIG_DIR / "logs"
+            directory.mkdir(mode=0o700, exist_ok=True)
+            self.stream = tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=directory,
+                prefix=datetime.now().strftime("%Y%m%d-%H%M%S-"), suffix=".log", delete=False,
+            )
+            self.path = Path(self.stream.name)
+        except OSError:
+            self.failed = True
+
+    def _fail(self) -> None:
+        self.failed = True
+        if not self._warned:
+            self._warned = True
+            print("本局诊断日志无法保存，游戏仍可继续。", file=sys.stderr)
+
+    def emit(self, record) -> None:
+        if not self.failed:
+            super().emit(record)
+
+    def handleError(self, record) -> None:
+        self._fail()
+
+    def close(self) -> None:
+        try:
+            if self.stream is not None:
+                self.stream.close()
+        except OSError:
+            self._fail()
+        finally:
+            self.stream = None
+            super().close()
+
+
+@contextmanager
+def _game_logging():
+    run_log = _RunLog()
+    loggers = [logger, logging.getLogger(), *(logging.getLogger(name) for name in
+               ("openai", "httpx", "httpx2", "httpcore", "httpcore2"))]
+    previous = [(log, log.handlers, log.level, log.propagate, log.disabled) for log in loggers]
+    try:
+        for log in loggers:
+            log.handlers = [run_log] if log is logger else [logging.NullHandler()]
+            log.setLevel(logging.INFO if log is logger else logging.CRITICAL + 1)
+            log.propagate = False
+            log.disabled = False
+        yield run_log
+    finally:
+        run_log.close()
+        for log, handlers, level, propagate, disabled in previous:
+            log.handlers = handlers
+            log.setLevel(level)
+            log.propagate, log.disabled = propagate, disabled
+        if run_log.failed:
+            run_log._fail()
+        if run_log.path is not None:
+            label = "诊断日志不完整" if run_log.failed else "诊断日志已保存"
+            print(f"{label}：{run_log.path}")
 
 
 def _unwired(*_args, **_kwargs):  # noqa: ANN002, ANN003
@@ -118,7 +194,6 @@ class Controller:
 
     def on_speech(self, seat: int, view, day: int, context: SpeechContext) -> str:
         self.ui.render_new()
-        self.ui.show_alive_update()
         if seat == self.human:
             self.ui.show_speech_context(context)
             if context.round_number == 2:
@@ -185,6 +260,7 @@ def save_record(path: Path, game: Game, client: LLMClient, seed: int | None) -> 
         "names": game.names, "winner": game.winner,
         "revealed_roles": [p.role.value for p in game.players] if game.winner is not None else None,
         "usage": asdict(client.usage),
+        "requests": client.requests,
         "events": [{"kind": e.kind.value, "day": e.day, "phase": e.phase.value,
                     "seat": e.seat, "speech_index": e.speech_index, "text": e.text, "extra": e.extra}
                    for e in game.events if e.public],
@@ -196,33 +272,43 @@ def save_record(path: Path, game: Game, client: LLMClient, seed: int | None) -> 
 
 def main() -> None:
     args = parse_args()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        stream=sys.stderr,
-    )
-    try:
-        game, _controller, ui, client = build_game(args)
-        ui.show_opening()
-        game.run()
-        ui.render_new()   # 终局事件
-        ui.show_game_over()
-        usage = client.usage
-        print(
-            f"\n📊 本次对局 LLM 调用 {usage.calls} 次，"
-            f"tokens {usage.total_tokens}（入 {usage.prompt_tokens} / 出 {usage.completion_tokens}，"
-            f"其中思考 {usage.reasoning_tokens}）；"
-            f"结构化重试 {usage.structured_retries} 次，降级 {usage.fallback_actions} 次"
-        )
-        if args.record is not None:
-            try:
-                save_record(args.record, game, client, args.seed)
-                print(f"公开对局记录已保存：{args.record}")
-            except OSError as exc:
-                print(f"对局记录保存失败：{exc}", file=sys.stderr)
-    except KeyboardInterrupt:
-        print("\n已退出游戏。")
-        sys.exit(130)
+    with _game_logging() as run_log:
+        logger.info("启动 seed=%s mode=%s", args.seed, "mock" if getattr(args, "mock", False) else "online")
+        try:
+            with ExitStack() as resources:
+                game, _controller, ui, client = build_game(args)
+                resources.callback(client.close)
+                logger.info("建局 board=%s model=%s", game.board.id, client.config.model)
+                ui.show_opening()
+                if run_log.failed:
+                    run_log._fail()  # 开局清屏之后提示，避免日志故障信息被擦掉。
+                game.run()
+                ui.render_new()   # 终局事件
+                ui.show_game_over()
+                usage = client.usage
+                print(
+                    f"\n📊 本次对局 LLM 调用 {usage.calls} 次，"
+                    f"tokens {usage.total_tokens}（入 {usage.prompt_tokens} / 出 {usage.completion_tokens}，"
+                    f"其中思考 {usage.reasoning_tokens}）；"
+                    f"结构化重试 {usage.structured_retries} 次，降级 {usage.fallback_actions} 次"
+                )
+                if args.record is not None:
+                    try:
+                        save_record(args.record, game, client, args.seed)
+                        print(f"公开对局记录已保存：{args.record}")
+                    except OSError as exc:
+                        print(f"对局记录保存失败：{exc}", file=sys.stderr)
+            logger.info("退出 status=completed")
+        except KeyboardInterrupt:
+            logger.info("退出 status=interrupted")
+            print("\n已退出游戏。")
+            raise SystemExit(130) from None
+        except Exception as exc:
+            frames = traceback.extract_tb(exc.__traceback__)
+            locations = "\n".join(f"{f.filename}:{f.lineno} in {f.name}" for f in frames)
+            logger.error("退出 status=error type=%s\n%s", type(exc).__name__, locations)
+            print(f"游戏无法继续（{type(exc).__name__}）。", file=sys.stderr)
+            raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

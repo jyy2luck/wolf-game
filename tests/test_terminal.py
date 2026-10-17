@@ -158,16 +158,57 @@ def test_user_scene_then_next_day_valid_human_history_reference(monkeypatch, cap
     assert len(stopped) == 16
 
 
-def test_wait_state_is_cleaned_on_unexpected_exception(captured_terminal):
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt])
+def test_wait_state_is_cleaned_on_unexpected_exception(captured_terminal, exception):
     output, stopped = captured_terminal
     game = Game(names=NAMES, hooks=default_hooks(), rng=random.Random(42))
     ui = terminal.TerminalUI(game, 0)
-    with pytest.raises(RuntimeError, match="测试异常"):
+    with pytest.raises(exception, match="测试异常"):
         with ui.wait_ai_speech("学姐", 5):
-            raise RuntimeError("测试异常")
+            raise exception("测试异常")
     assert len(stopped) == 1
     terminal.console.print("清理后可以继续输出")
     assert "清理后可以继续输出" in text_output(output)
+
+
+@pytest.mark.parametrize("stage", ["speech", "reply", "sheriff_speech", "sheriff_pk", "exile_pk", "last_words"])
+@pytest.mark.parametrize("seat", [0, 5])
+def test_official_speech_keeps_plain_body_and_distinct_header(stage, seat, captured_terminal):
+    output, _ = captured_terminal
+    game = Game(names=NAMES, hooks=default_hooks(), rng=random.Random(42))
+    body = "引用 [#42]，原文 [bold red]不是样式[/bold red]。\n第二行保留。"
+    game.events.append(ev.speech(1, seat, NAMES[seat], 1, body, stage=stage))
+    ui = terminal.TerminalUI(game, 0)
+    ui.render_new()
+    ui.render_new()
+    text = text_output(output)
+    assert f"[#1] {NAMES[seat]}（{seat + 1} 号） · {ev.STAGE_LABELS[stage]}\n{body}\n\n" in text
+    assert text.count(body) == 1 and text.count("[#1]") == 1
+
+
+def test_summary_updates_only_when_displayed_state_changes(captured_terminal):
+    output, _ = captured_terminal
+    game = Game(names=NAMES, hooks=default_hooks(), rng=random.Random(42))
+    ui = terminal.TerminalUI(game, 0)
+    ui.render_new()
+    ui.render_new()
+    assert text_output(output).count("存活：") == 1
+    game.events.append(ev.speech(1, 5, NAMES[5], 1, FINAL))
+    ui.render_new()
+    assert text_output(output).count("存活：") == 1
+    game.players[4].alive = False
+    game.events.append(ev.death(1, [4]))
+    ui.render_new()
+    game.stage = "reply"
+    ui.render_new()
+    game.sheriff = 5
+    ui.render_new()
+    ui.render_new()
+    text = text_output(output)
+    assert text.count("存活：") == 4 and text.count(FINAL) == 1
+    assert "阶段：简短回应 · 警长：6" in text
+    terminal.TerminalUI(game, 0).render_new()
+    assert text_output(output).count("存活：") == 5
 
 
 def test_private_strategy_only_reaches_its_owners_later_decisions(monkeypatch, captured_terminal, caplog):
@@ -259,6 +300,7 @@ def test_public_record_excludes_private_data_and_never_overwrites(tmp_path):
 def test_record_failure_keeps_completed_game(monkeypatch, tmp_path, capsys, captured_terminal):
     import main
 
+    monkeypatch.setattr(main, "CONFIG_DIR", tmp_path / "user")
     path = tmp_path / "existing.json"
     path.write_text("保留原记录")
     game, controller, ui, client = build_game(Namespace(mock=True, reconfig=False, seed=42))

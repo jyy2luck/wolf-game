@@ -40,6 +40,7 @@ class TerminalUI:
         self.game = game
         self.my_seat = my_seat
         self._rendered = 0  # 已渲染的人类视角事件数（增量渲染）
+        self._last_summary = None
 
     # ------------------------------------------------------------ 开局（4.1）
 
@@ -90,17 +91,24 @@ class TerminalUI:
         for e in view[self._rendered:]:
             self._print_event(e)
         self._rendered = len(view)
+        self.show_alive_update()
 
     def _print_event(self, e: Event) -> None:
         if not e.public:
             self._print_private_event(e)
+            return
+        if e.kind is EventKind.SPEECH:
+            stage = e.extra["stage"]
+            title = f"[#{e.speech_index}] {e.extra['name']}（{e.seat + 1} 号） · {ev.STAGE_LABELS.get(stage, stage)}"
+            console.print(Text(title, style="bold cyan"))
+            console.print(Text(e.extra["content"]))
+            console.print()
             return
         style = {
             EventKind.NIGHT_FALLS: "dim magenta",
             EventKind.DAWN: "yellow",
             EventKind.DEATH: "bold red",
             EventKind.PEACEFUL_NIGHT: "green",
-            EventKind.SPEECH: "white",
             EventKind.VOTE_RESULT: "cyan",
             EventKind.EXILE: "bold red",
             EventKind.GAME_OVER: "bold yellow",
@@ -119,8 +127,11 @@ class TerminalUI:
             f"{p.seat + 1}号 {p.name}"
             for p in self.game.players if p.alive
         )
-        console.print(f"[dim]存活：{alive}[/dim]")
-        console.print(f"[dim]{self.game.board.name} v{self.game.board.version} · 阶段：{ev.STAGE_LABELS.get(self.game.stage, self.game.stage)} · 警长：{self.game.sheriff + 1 if self.game.sheriff is not None else '无'}[/dim]")
+        status = f"{self.game.board.name} v{self.game.board.version} · 阶段：{ev.STAGE_LABELS.get(self.game.stage, self.game.stage)} · 警长：{self.game.sheriff + 1 if self.game.sheriff is not None else '无'}"
+        summary = (alive, status)
+        if summary != self._last_summary:
+            console.print(Text(f"存活：{alive}\n{status}", style="dim"))
+            self._last_summary = summary
 
     def show_speech_context(self, context: SpeechContext) -> None:
         console.print(f"[bold]当前发言：{ev.STAGE_LABELS.get(context.stage, context.stage)} · 第{context.round_number}轮 · 第{context.position}/{len(context.order)}位[/bold]")
@@ -258,8 +269,7 @@ class TerminalUI:
     @contextmanager
     def wait_ai_speech(self, name: str, seat: int) -> Iterator[None]:
         """等待覆盖全部生成与重试；成功、降级及异常均清理 Live。"""
-        console.print(Text(f"💬 {name}（{seat + 1} 号）"), style="cyan")
-        with Live(Text("（生成与校验中…）", style="dim italic"),
+        with Live(Text(f"💬 {name}（{seat + 1} 号）生成与校验中…", style="dim italic"),
                   console=console, refresh_per_second=10, transient=True):
             yield
 
