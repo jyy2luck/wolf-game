@@ -306,7 +306,7 @@ def test_record_failure_keeps_completed_game(monkeypatch, tmp_path, capsys, capt
     game, controller, ui, client = build_game(Namespace(mock=True, reconfig=False, seed=42))
     game.winner = "好人阵营"
     game.events.append(ev.game_over(1, game.winner, "离线验证"))
-    monkeypatch.setattr(main, "parse_args", lambda: Namespace(record=path, seed=42))
+    monkeypatch.setattr(main, "parse_args", lambda: Namespace(record=path, seed=42, board="six-classic"))
     monkeypatch.setattr(main, "build_game", lambda args: (game, controller, ui, client))
     main.main()
     assert path.read_text() == "保留原记录"

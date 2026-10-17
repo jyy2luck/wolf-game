@@ -79,7 +79,7 @@ def test_retries_metrics_and_fallback_do_not_log_model_content(log_home, make_cl
 
 @pytest.fixture
 def entry(monkeypatch, log_home):
-    args = Namespace(mock=True, reconfig=False, seed=42, record=None)
+    args = Namespace(mock=True, reconfig=False, seed=42, record=None, board="six-classic")
     game, controller, ui, client = main.build_game(args)
     game.winner = "好人阵营"
     game.events.append(ev.game_over(1, game.winner, "离线验证"))

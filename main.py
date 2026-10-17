@@ -1,7 +1,8 @@
-"""入口：加载/引导配置 → 建局 → 主循环 → 终局。
+"""入口：选择板子 → 加载/引导配置 → 建局 → 主循环 → 终局。
 
 用法：
-    python main.py              # 正常启动（无配置则进入引导）
+    python main.py              # 选择板子后启动（无配置则进入引导）
+    python main.py --board nine-standard  # 跳过选择，直接进入九人局
     python main.py --reconfig   # 重新配置 LLM 连接
     python main.py --mock       # 离线演示模式（不调用真实 LLM）
     python main.py --seed 42    # 固定随机种子（复现对局）
@@ -111,7 +112,7 @@ def _unwired(*_args, **_kwargs):  # noqa: ANN002, ANN003
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="🐺 LLM 狼人杀（单机标准板子）")
-    parser.add_argument("--board", choices=tuple(BOARDS), default="six-classic", help="选择具名板子")
+    parser.add_argument("--board", choices=tuple(BOARDS), help="直接指定板子并跳过选择；未指定时显示菜单，回车默认六人局")
     parser.add_argument("--reconfig", action="store_true", help="重新配置 LLM 连接")
     parser.add_argument("--mock", action="store_true", help="离线演示模式，不调用真实 LLM")
     parser.add_argument("--seed", type=int, default=None, help="固定随机种子")
@@ -217,7 +218,7 @@ class Controller:
 
 
 def build_game(args: argparse.Namespace) -> tuple[Game, Controller, TerminalUI, LLMClient]:
-    board = get_board(getattr(args, "board", "six-classic"))
+    board = get_board(getattr(args, "board", None) or "six-classic")
     if args.mock:
         config = LLMConfig(base_url="mock://local", api_key="mock", model="mock")
     else:
@@ -275,6 +276,8 @@ def main() -> None:
     with _game_logging() as run_log:
         logger.info("启动 seed=%s mode=%s", args.seed, "mock" if getattr(args, "mock", False) else "online")
         try:
+            if args.board is None:
+                args.board = TerminalUI.prompt_board()
             with ExitStack() as resources:
                 game, _controller, ui, client = build_game(args)
                 resources.callback(client.close)
@@ -299,7 +302,7 @@ def main() -> None:
                     except OSError as exc:
                         print(f"对局记录保存失败：{exc}", file=sys.stderr)
             logger.info("退出 status=completed")
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             logger.info("退出 status=interrupted")
             print("\n已退出游戏。")
             raise SystemExit(130) from None

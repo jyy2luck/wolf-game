@@ -19,6 +19,7 @@ from rich.table import Table
 from rich.text import Text
 
 from engine import events as ev
+from engine.boards import BOARDS
 from engine.events import Event, EventKind
 from engine.game import ActionWindow, Game, SpeechContext
 from engine.roles import ROLE_DESCRIPTION, Role, Team, team_of
@@ -43,6 +44,23 @@ class TerminalUI:
         self._last_summary = None
 
     # ------------------------------------------------------------ 开局（4.1）
+
+    @classmethod
+    def prompt_board(cls) -> str:
+        choices = {str(n): board for n, board in enumerate(BOARDS.values(), 1)}
+        table = Table(title="🐺 选择游戏", show_lines=True)
+        for label in ("编号", "玩法", "人数", "角色配置", "警长"):
+            table.add_column(label, overflow="fold")
+        for number, board in choices.items():
+            roles = " / ".join(f"{role.value}×{count}" for role, count in board.role_counts)
+            table.add_row(number, board.name, str(board.player_count), roles,
+                          "有" if board.sheriff else "无")
+        console.print(table)
+        while True:
+            raw = cls._read_input(f"选择游戏编号（1～{len(choices)}，回车默认 1：原六人局）：") or "1"
+            if raw in choices:
+                return choices[raw].id
+            console.print(f"[red]非法输入，请输入 1～{len(choices)} 的编号。[/red]")
 
     def show_opening(self) -> None:
         game = self.game
